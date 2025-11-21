@@ -1,0 +1,33 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Phase 1: Foundation - Setup Astro & Rust/WGPU bridge",
+        "description": "Establish the communication loop between the browser (DOM/Astro) and the Rust/WGPU engine.",
+        "details": "Initialize or verify the Rust WASM project structure. Ensure the build pipeline (wasm-pack) is correctly set up. Create a basic 'hello world' invocation from the Astro frontend to the Rust backend to verify the bridge.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Phase 1: Foundation - Implement Basic WGPU Renderer",
+        "description": "Create a basic render loop in Rust/WGPU targeting a Canvas in Astro.",
+        "details": "Search for 'WASM render loop templates' or existing wgpu-on-web examples. Implement a basic WGPU surface configuration and render loop (e.g., clearing the screen to a specific color) that runs in the browser canvas.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-11-21T19:43:27.080Z",
+      "description": "Default tasks context",
+      "updated": "2025-11-21T19:43:54.806Z"
+    }
+  }
+}

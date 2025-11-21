@@ -1,0 +1,273 @@
+---
+// model_renderer/src/components/Renderer.astro
+const CANVAS_ID = "webgpu-canvas";  // modernart1-sculpt-1, IMAGE3D-1, dezimiertt-glb-03
+const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
+---
+
+<div class="renderer-container" aria-label="Interactive 3D Model Viewer" role="application">
+  <div id="loader" class="loader">INITIALIZING GPU...</div>
+  
+  <canvas id={CANVAS_ID} tabindex="0" aria-label="3D Canvas"></canvas>
+  <div class="css-light-overlay"></div>
+</div>
+
+<script type="module" define:vars={{ CANVAS_ID, modelPath }}>
+  import init, { startRenderer } from '/pkg/model_renderer.js';
+  import { theme, onSet } from '../src/stores/sceneStore.ts';
+
+  // --- Global Scope (für Cleanup notwendig) ---
+  let state = null;
+  let rafId = null;
+  let resizeObserver = null;
+  let intersectionObserver = null;
+  let isVisible = true; 
+  let themeUnsub = null; 
+
+  // DOM Elemente
+  const canvas = document.getElementById(CANVAS_ID);
+  const container = document.querySelector('.renderer-container');
+  const loader = document.getElementById('loader');
+
+  // Input State
+  let isDragging = false;
+  let lastX = 0;
+  let lastY = 0;
+
+  // --- SOTA Render Loop ---
+  function renderLoop() {
+    // 0. Safety: Stoppen, wenn Canvas nicht mehr im DOM ist (Astro View Transition)
+    if (!canvas.isConnected) {
+        cleanup();
+        return;
+    }
+
+    // 1. Battery Saver: Pause, wenn Tab im Hintergrund oder Canvas off-screen
+    if (!isVisible || document.hidden) {
+      rafId = requestAnimationFrame(renderLoop);
+      return;
+    }
+
+    if (state) {
+      try {
+        state.render();
+      } catch (e) {
+        console.error("Render Crash:", e);
+        cleanup(); // Notfall-Cleanup
+        return;
+      }
+    }
+    rafId = requestAnimationFrame(renderLoop);
+  }
+
+  // --- Initialization ---
+  async function start() {
+    if (!canvas) return;
+
+    try {
+      await init();
+      state = await startRenderer(canvas);
+      
+      // 1. Theme Sync
+      if (theme) {
+        state.setTheme(theme.get() === 'dark');
+        themeUnsub = onSet(theme, ({ newValue }) => {
+            if (state) state.setTheme(newValue === 'dark');
+        });
+      }
+
+      // 2. Asset Loading
+      const response = await fetch(modelPath); 
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      
+      state.loadModelFromBytes(bytes);
+      loader.classList.add('hidden');
+
+      // 3. Systeme starten
+      setupObservers();
+      setupInput();
+      
+      // 4. Initial Resize erzwingen (Verhindert "Mini-Canvas" Blitz)
+      triggerInitialResize();
+
+      renderLoop();
+
+    } catch (e) {
+      console.group("🔴 SOTA Renderer Error Log");
+      console.error("Initialization failed. Details below:");
+      if (e.stack) console.error("Stack:", e.stack);
+      
+      if (loader) loader.textContent = "GPU ERROR: " + e; // Zeige Fehler im UI an
+      // Ensure we kill any zombie loops
+      cleanup(); 
+    }
+  }
+
+  function triggerInitialResize() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * dpr));
+      const height = Math.max(1, Math.floor(rect.height * dpr));
+      if (state) {
+          canvas.width = width;
+          canvas.height = height;
+          state.resize(width, height);
+      }
+  }
+
+  // --- Observers (Resize & Visibility) ---
+  function setupObservers() {
+    // Resize Observer (Pixel Perfect für Retina/HighDPI)
+    resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        let width, height;
+        // Chrome/Edge: Physische Pixel
+        if (entry.devicePixelContentBoxSize) {
+          width = entry.devicePixelContentBoxSize[0].inlineSize;
+          height = entry.devicePixelContentBoxSize[0].blockSize;
+        } else {
+          // Firefox/Safari: Berechnung via DPR
+          const dpr = window.devicePixelRatio || 1;
+          width = Math.max(1, Math.floor(entry.contentRect.width * dpr));
+          height = Math.max(1, Math.floor(entry.contentRect.height * dpr));
+        }
+
+        if (state && width > 0 && height > 0) {
+          canvas.width = width;
+          canvas.height = height;
+          state.resize(width, height);
+        }
+      }
+    });
+    resizeObserver.observe(container);
+
+    // Intersection Observer (Pausiert Render Loop wenn unsichtbar)
+    intersectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        isVisible = entry.isIntersecting;
+      });
+    }, { threshold: 0 });
+    intersectionObserver.observe(canvas);
+  }
+
+  // --- Input Handling (Pointer Events) ---
+  function setupInput() {
+    container.addEventListener('pointerdown', (e) => {
+      console.log("🖱️ Pointer Down auf Renderer");
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      
+      container.style.cursor = 'grabbing';
+      // WICHTIG: Input sperren, damit Drehen auch außerhalb des Fensters geht
+      container.setPointerCapture(e.pointerId);
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      isDragging = false;
+      container.style.cursor = 'grab';
+      if (container.hasPointerCapture(e.pointerId)) {
+        container.releasePointerCapture(e.pointerId);
+      }
+    });
+
+    container.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+
+      if (state && isDragging) {
+        const deltaX = e.clientX - lastX;
+        const deltaY = e.clientY - lastY;
+        
+        const sensitivity = 1.0; 
+        state.update_camera(deltaX * sensitivity, deltaY * sensitivity, 0);
+
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
+
+      // Shader & CSS Overlay Update
+      if (state) {
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        state.update(x, y, rect.width, rect.height);
+        
+        container.style.setProperty('--light-x', `${e.clientX}px`);
+        container.style.setProperty('--light-y', `${e.clientY}px`);
+      }
+    });
+
+    container.addEventListener('wheel', (e) => {
+      if (state) {
+        e.preventDefault();
+        state.update_camera(0, 0, e.deltaY * 0.5); 
+      }
+    }, { passive: false });
+  }
+
+  // --- Cleanup ---
+  function cleanup() {
+    if (rafId) cancelAnimationFrame(rafId);
+    if (resizeObserver) resizeObserver.disconnect();
+    if (intersectionObserver) intersectionObserver.disconnect();
+    if (themeUnsub) themeUnsub();
+    
+    if (state && state.free) state.free();
+    state = null;
+  }
+
+  start();
+
+  // Astro Lifecycle Support
+  document.addEventListener('astro:before-swap', cleanup);
+</script>
+
+<style>
+.renderer-container {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #050505;
+  cursor: grab;
+  overflow: hidden;
+  pointer-events: auto; /* clickable container for camera */
+  /* Mobile UX: Verhindert Textauswahl beim Drehen */
+  user-select: none; 
+  -webkit-user-select: none;
+  
+  /* SOTA FIX: Verhindert Page-Scroll beim Draggen des Overlays */
+  touch-action: none; 
+}
+
+#webgpu-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.loader {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #666;
+  font-family: monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  transition: opacity 0.5s ease;
+  pointer-events: none; /* clicks go through */
+  z-index: 10;
+}
+.loader.hidden { opacity: 0; }
+
+.css-light-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* clicks go through */
+  background: radial-gradient(
+    circle 800px at var(--light-x, 50%) var(--light-y, 50%),
+    rgba(100, 120, 255, 0.08) 0%,
+    rgba(0, 0, 0, 0.0) 60%
+  );
+  mix-blend-mode: screen;
+}
+</style>

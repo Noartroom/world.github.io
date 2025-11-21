@@ -1,16 +1,68 @@
 ---
-
+import Layout from '@/layouts/Layout.astro';
+import ImmersiveScene from '@/components/ImmersiveScene.tsx';
+import IamfPlayer from '@/components/IamfPlayer.astro';
+import Renderer from '@/components/Renderer.astro';
 ---
+<Layout title="Astro Prototype">
+  <main>
+    <div class="global-controls">
+      <button id="themeToggle" class="global-toggle">Toggle Theme</button>
+      <button id="light-engine-toggle" class="global-toggle">Toggle Dynamic Light</button>
+    </div>
+    <Renderer />
+    <!-- 
+      This is the "Astro Island".
+      'client:load' tells Astro to hydrate this React component
+      immediately on page load.
+    -->
+    <!-- <ImmersiveScene client:load />
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+    <IamfPlayer /> -->
+    <IamfPlayer />
+  </main>
+</Layout>
+
+<script>
+  // This script controls the global buttons
+  import { theme, isDynamicLightActive } from '@/stores/sceneStore';
+
+  const themeButton = document.getElementById('themeToggle');
+  themeButton?.addEventListener('click', () => {
+    const currentTheme = theme.get();
+    theme.set(currentTheme === 'light' ? 'dark' : 'light');
+  });
+
+  const lightButton = document.getElementById('light-engine-toggle');
+  lightButton?.addEventListener('click', () => {
+    isDynamicLightActive.set(!isDynamicLightActive.get());
+  });
+</script>
+
+<style>
+  main {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* Make it full-screen */
+    /* Clicks go through */
+    pointer-events: none; 
+    background: transparent;
+  }
+  .global-controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .global-toggle {
+    padding: 0.5em 1em;
+    background: #444;
+    color: white;
+  }
+  .global-toggle:hover {
+    background: #646cff;
+  }
+</style>

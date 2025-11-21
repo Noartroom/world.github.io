@@ -1,0 +1,40 @@
+---
+import '@/styles/global.css';
+
+export interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <!-- <script is:raw src="/js/orbit-camera.js"></script>
+    <script is:raw src="/js/interaction-raycast.js"></script> -->
+    <!-- <script is:raw src="/js/playcanvas-stable.min.js"></script>
+    <script is:raw src="/js/ammo.wasm.js"></script>
+    <script is:raw src="/js/orbit-camera.js"></script>
+    <script is:raw src="/js/interaction-raycast.js"></script> -->
+    <script is:inline>
+      const detectSystemTheme = () =>
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      
+      const savedTheme = localStorage.getItem("theme");
+      const initialTheme = savedTheme || detectSystemTheme();
+      
+      localStorage.setItem("theme", initialTheme);
+      
+      const root = document.documentElement;
+      root.classList.remove('light-mode', 'dark-mode');
+      root.classList.add(initialTheme === 'dark' ? 'dark-mode' : 'light-mode');
+    </script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

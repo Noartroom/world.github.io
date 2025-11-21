@@ -1,0 +1,68 @@
+Project: Dreamworld — Adaptive Abstract (Flexible Spec)
+
+Core Directive:
+This plan serves as a conceptual blueprint. The specific technologies (e.g., Rust/WGPU) are placeholders. The priority is to integrate existing open-source solutions first. If a library exists that solves a problem, the architecture adapts to fit the library.
+
+1. The Vision
+A web experience that dissolves the boundary between a static 2D interface and an interactive 3D dream state. It is not a window to look through, but a space to enter.
+
+2. Flexible Architecture (The Search-First Stack)
+We aim for a hybrid performance stack, but specific components will be swapped based on available code assets.
+- UI Layer (Target: Astro): Handles DOM and View Transitions.
+- Engine Layer (Target: Rust/WGPU via WASM): High-performance rendering.
+  Search Focus: Look for existing WASM-ready renderers or "creative coding" crates to avoid writing raw WGPU boilerplate.
+- Audio Layer (Target: IAMF): Spatial audio.
+  Search Focus: Find libraries that already handle spatial metadata to drive visual parameters.
+- The Bridge (State): A central store that syncs 2D DOM with 3D Canvas.
+
+3. The "Immersive Axes" (Feature Goals)
+These are the effects we want to achieve. How we achieve them depends on the libraries we find.
+
+Axis I: TIME (Scroll = Playback)
+- Goal: Scrolling doesn't move the camera; it manipulates time.
+- Mechanism: Scroll position controls audio playback and animation timelines.
+- Tiered Effect:
+  - Simple: Scrubbing audio/video.
+  - Complex: Granular synthesis (audio fragmentation) on reverse scroll.
+
+Axis II: AUDIO VISUALIZATION (The Artifact)
+- Goal: Sound manifests as a central, evolving 3D object.
+- Mechanism: Audio frequency data (bass/treble) deforms 3D geometry in real-time.
+- Search Focus: Look for open-source "audio reactive shaders" or "FFT visualizers" to adapt.
+
+Axis III: PHYSICS (The "Breathing" World)
+- Goal: The environment reacts to music intensity and page navigation.
+- Mechanism:
+  - Music: Heavy bass = Low Gravity (float state).
+  - Navigation: Changing pages creates a "shockwave" that pushes objects away before the new content arrives.
+
+Axis IV: UNIFIED LIGHTING
+- Goal: The 2D UI and 3D world feel like they share the same physical space.
+- Mechanism: The user's mouse acts as a light source that casts shadows from 2D HTML elements onto the 3D background.
+
+User Goals
+- Immersive Exploration: Users should feel they are entering a living digital space, not just viewing a static page.
+- Intuitive Control: Users should be able to manipulate time (playback) and space (lighting/physics) through natural inputs like scrolling and mouse movement.
+- Adaptive Performance: Users on varying devices (Mobile vs. High-End Desktop) should receive an optimized experience that maintains fluidity.
+
+Tech Stack
+- Development: VS Code, Node.js
+- Frontend: Astro (UI Layer & View Transitions), TypeScript
+- Core Engine: Rust & WGPU (compiled to WASM)
+- Audio: IAMF (Spatial Audio)
+- Physics/Math: Rapier (WASM) or similar linear algebra crates
+
+4. Scalability Strategy
+We do not build one scene for everyone. We build a scalable ladder:
+- Tier 1 (Mobile/Standard): Standard shading, simple playback.
+- Tier 2 (High-End): Compute shaders, raytraced shadows, granular audio synthesis.
+
+5. Current Roadmap (Search & Integrate)
+Phase 1: Foundation. Establish the loop between the browser (DOM) and the Canvas.
+- Action: Search for "WASM render loop templates."
+
+Phase 2: Connection. Connect Audio data to Visuals.
+- Action: Search for "WebAudio API analyzer examples" or "Rust DSP crates."
+
+Phase 3: Physics. Implement the "Shockwave" transition.
+- Action: Search for "Rapier physics WASM demos."
