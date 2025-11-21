@@ -43,6 +43,7 @@
 <script type="module">
   // Importiere den Store (als .js)
   import { theme, onSet } from '../src/stores/sceneStore.js';
+  import { connectAudioElement, resumeAudioContext } from '../src/stores/audioStore.js';
   
   let isPlaying = false;
   
@@ -133,8 +134,18 @@
   if (playButton) {
     playButton.addEventListener('click', () => {
       if (!dummyPlayButton) return;
-      dummyPlayButton.click(); 
-      isPlaying = !isPlaying; 
+
+      // Initialize/Resume Audio Context on user interaction
+      resumeAudioContext();
+      
+      // Connect to audio elements for signal extraction
+      const stereoEl = document.getElementById('stereoPlayback');
+      const binauralEl = document.getElementById('binauralPlayback');
+      if (stereoEl) connectAudioElement(stereoEl);
+      if (binauralEl) connectAudioElement(binauralEl);
+
+      dummyPlayButton.click();
+      isPlaying = !isPlaying;
       if (wrapper) {
         wrapper.classList.toggle('is-playing', isPlaying);
       }

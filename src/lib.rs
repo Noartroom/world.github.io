@@ -39,12 +39,14 @@ impl State {
 
 #[wasm_bindgen]
 impl State {
-    pub fn setTheme(&mut self, is_dark: bool) {
+    #[wasm_bindgen(js_name = "setTheme")]
+    pub fn set_theme(&mut self, is_dark: bool) {
         web_sys::console::log_1(&format!("Theme updated to: {}", if is_dark { "Dark" } else { "Light" }).into());
         // Future: update clear color or shader uniforms based on theme
     }
 
-    pub fn loadModelFromBytes(&mut self, bytes: &[u8]) {
+    #[wasm_bindgen(js_name = "loadModelFromBytes")]
+    pub fn load_model_from_bytes(&mut self, bytes: &[u8]) {
         web_sys::console::log_1(&format!("Model bytes received: {} bytes", bytes.len()).into());
         // Future: Parse GLTF/GLB here
     }
@@ -150,8 +152,8 @@ impl State {
     }
 }
 
-#[wasm_bindgen]
-pub async fn startRenderer(canvas: HtmlCanvasElement) -> Result<State, JsValue> {
+#[wasm_bindgen(js_name = "startRenderer")]
+pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 

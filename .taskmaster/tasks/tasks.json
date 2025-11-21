@@ -7,7 +7,7 @@
         "description": "Establish the communication loop between the browser (DOM/Astro) and the Rust/WGPU engine.",
         "details": "Initialize or verify the Rust WASM project structure. Ensure the build pipeline (wasm-pack) is correctly set up. Create a basic 'hello world' invocation from the Astro frontend to the Rust backend to verify the bridge.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
         "subtasks": []
@@ -27,7 +27,7 @@
     "metadata": {
       "created": "2025-11-21T19:43:27.080Z",
       "description": "Default tasks context",
-      "updated": "2025-11-21T19:43:54.806Z"
+      "updated": "2025-11-21T20:32:53.915Z"
     }
   }
 }
