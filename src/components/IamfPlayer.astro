@@ -179,13 +179,30 @@
     border-radius: 12px;
     backdrop-filter: blur(5px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: background 0.3s, color 0.3s;
+    transition: background 0.3s, color 0.3s, box-shadow 0.2s ease-out;
     display: flex;
     align-items: center;
     gap: 1rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     /* Der Wrapper muss klickbar sein */
     pointer-events: auto;
+    
+    /* Dynamic lighting effects - always defined to prevent layout shifts */
+    --light-dx: calc(var(--light-x, 50vw) - 50vw);
+    --light-dy: calc(var(--light-y, 50vh) - 50vh);
+    --light-proximity: var(--light-intensity, 0);
+    
+    /* Shadow offset - opposite direction from light */
+    --shadow-offset-x: calc(var(--light-dx) * -0.08);
+    --shadow-offset-y: calc(var(--light-dy) * -0.08);
+    --shadow-blur: calc(12px + (var(--light-intensity, 0) * 20px) + (var(--light-proximity) * 15px));
+    --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.4);
+    
+    /* Always apply shadow, intensity controlled by CSS vars */
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.1),
+      var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) rgba(0, 0, 0, 0.3),
+      0 0 calc(25px * var(--glow-intensity)) rgba(100, 150, 255, var(--glow-intensity));
   }
   #iamf-player-wrapper.dark-mode {
     background: rgba(51, 51, 51, 0.9);
@@ -204,7 +221,25 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    transition: background 0.3s, color 0.3s, transform 0.2s;
+    transition: background 0.3s, color 0.3s, transform 0.2s, box-shadow 0.2s ease-out;
+    position: relative;
+    
+    /* Dynamic lighting effects for button */
+    --light-dx: calc(var(--light-x, 50vw) - 50vw);
+    --light-dy: calc(var(--light-y, 50vh) - 50vh);
+    --light-proximity: var(--light-intensity, 0);
+    
+    /* Button shadow offset */
+    --btn-shadow-offset-x: calc(var(--light-dx) * -0.06);
+    --btn-shadow-offset-y: calc(var(--light-dy) * -0.06);
+    --btn-shadow-blur: calc(8px + (var(--light-intensity, 0) * 12px) + (var(--light-proximity) * 8px));
+    --btn-glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.5);
+    
+    /* Always apply shadow */
+    box-shadow: 
+      var(--btn-shadow-offset-x) var(--btn-shadow-offset-y) var(--btn-shadow-blur) rgba(0, 0, 0, 0.3),
+      0 0 calc(15px * var(--btn-glow-intensity)) rgba(100, 150, 255, var(--btn-glow-intensity)),
+      inset 0 1px 2px rgba(255, 255, 255, 0.2);
   }
   #iamf-play-button:not(:disabled) {
     display: flex;
@@ -215,12 +250,24 @@
   }
   #iamf-play-button:hover {
     transform: scale(1.05);
+    --btn-glow-intensity: calc((var(--light-intensity, 0) * var(--light-proximity) * 0.7) + 0.2);
   }
 
   #iamf-status {
     font-size: 0.9rem;
     color: #333;
     margin: 0;
+    transition: text-shadow 0.2s ease-out;
+    
+    /* Dynamic text shadow for status text */
+    --light-dx: calc(var(--light-x, 50vw) - 50vw);
+    --light-dy: calc(var(--light-y, 50vh) - 50vh);
+    --light-proximity: var(--light-intensity, 0);
+    --text-glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.4);
+    
+    text-shadow: 
+      0 0 calc(3px * var(--text-glow-intensity)) rgba(100, 150, 255, var(--text-glow-intensity)),
+      0 1px 2px rgba(0, 0, 0, 0.2);
   }
   #iamf-player-wrapper.dark-mode #iamf-status {
     color: #ccc;
