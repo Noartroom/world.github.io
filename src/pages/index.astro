@@ -24,13 +24,25 @@ import Renderer from '@/components/Renderer.astro';
   const themeButton = document.getElementById('themeToggle');
   themeButton?.addEventListener('click', () => {
     const currentTheme = theme.get();
-    theme.set(currentTheme === 'light' ? 'dark' : 'light');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    const currentModel = activeModel.get();
+    
+    theme.set(newTheme);
+    
+    // Only switch the model if it doesn't match the new theme
+    if (currentModel !== newTheme) {
+      activeModel.set(newTheme);
+    }
   });
 
   const modelButton = document.getElementById('modelToggle');
   modelButton?.addEventListener('click', () => {
     const current = activeModel.get();
-    activeModel.set(current === 'modern' ? 'abstract' : 'modern');
+    const newModel = current === 'light' ? 'dark' : 'light';
+    // Only update if different to avoid unnecessary triggers
+    if (current !== newModel) {
+      activeModel.set(newModel);
+    }
   });
 
   const lightButton = document.getElementById('light-engine-toggle');

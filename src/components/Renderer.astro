@@ -16,7 +16,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
 <script type="module" define:vars={{ CANVAS_ID, modelPath }}>
   import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6';
-  import { theme, onSet, isDynamicLightActive } from '../src/stores/sceneStore.ts';
+  import { theme, activeModel, onSet, isDynamicLightActive } from '../src/stores/sceneStore.ts';
   import { getAudioData, getStereoData } from '../src/stores/audioStore.ts';
 
   // --- Global Scope (für Cleanup notwendig) ---
@@ -27,6 +27,8 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   let isVisible = true;
   let themeUnsub = null;
   let lightUnsub = null;
+  let modelUnsub = null;
+  let isLoadingModel = false; // Prevent concurrent model loads
 
   // Performance Monitoring (SOTA Guardrails)
   let lastFrameTime = performance.now();
@@ -233,13 +235,94 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
          }
       });
 
-      // 2. Asset Loading
-      const response = await fetch(modelPath); 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      // 1.6 Model Switching
+      let isInitialLoad = true; // Track if we're doing the initial load
+      let currentLoadedModel = null; // Track currently loaded model
       
-      state.loadModelFromBytes(bytes);
-      loader.classList.add('hidden');
+      const loadModel = async (modelType) => {
+        // Prevent concurrent loads
+        if (isLoadingModel) {
+          console.log(`Model load already in progress, skipping ${modelType}`);
+          return;
+        }
+
+        // Skip if already loaded
+        if (currentLoadedModel === modelType && !isInitialLoad) {
+          console.log(`Model ${modelType} already loaded, skipping`);
+          return;
+        }
+
+        // Ensure state is ready
+        if (!state) {
+          console.error('Cannot load model: renderer state not ready');
+          return;
+        }
+
+        const modelPath = modelType === 'dark' 
+          ? '/models/dezimiertt-glb-03.glb' 
+          : '/models/modernart1-sculpt-1.glb';
+        
+        isLoadingModel = true;
+        
+        try {
+          if (loader) {
+            loader.classList.remove('hidden');
+            loader.textContent = `LOADING ${modelType.toUpperCase()} MODEL...`;
+          }
+          
+          const response = await fetch(modelPath);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          
+          // Small delay to ensure renderer is ready (fixes first-click issue)
+          if (isInitialLoad) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          state.loadModelFromBytes(bytes);
+          
+          // Wait a bit for the model to be processed
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          currentLoadedModel = modelType; // Track what we loaded
+          
+          if (loader) {
+            loader.classList.add('hidden');
+          }
+          console.log(`Model switched to: ${modelType}`);
+        } catch (e) {
+          console.error(`Failed to load model ${modelType}:`, e);
+          if (loader) {
+            loader.textContent = `ERROR LOADING ${modelType.toUpperCase()}`;
+            // Auto-hide error after 3 seconds
+            setTimeout(() => {
+              if (loader) loader.classList.add('hidden');
+            }, 3000);
+          }
+        } finally {
+          isLoadingModel = false;
+          if (isInitialLoad) {
+            isInitialLoad = false;
+          }
+        }
+      };
+
+      // Load initial model (wait for it to complete before setting up subscription)
+      const initialModel = activeModel.get();
+      await loadModel(initialModel);
+
+      // Subscribe to model changes (only after initial load is complete)
+      modelUnsub = onSet(activeModel, ({ newValue, oldValue }) => {
+        // Skip if this is the initial value being set or if already loading
+        if (isInitialLoad || isLoadingModel) {
+          return;
+        }
+        
+        // Only load if state is ready and value actually changed
+        if (state && newValue !== oldValue && newValue !== currentLoadedModel) {
+          loadModel(newValue);
+        }
+      });
 
       // 3. Systeme starten
       setupObservers();
@@ -361,6 +444,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     if (intersectionObserver) intersectionObserver.disconnect();
     if (themeUnsub) themeUnsub();
     if (lightUnsub) lightUnsub();
+    if (modelUnsub) modelUnsub();
     
     if (state && state.free) state.free();
     state = null;

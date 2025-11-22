@@ -10,25 +10,25 @@ function Scene() {
   const currentModel = useStore(activeModel)
 // 1. Load BOTH models at the start, just like your prototype
   const {
-    asset: modernAsset,
-    loading: loadingModern,
-    error: errorModern
+    asset: lightAsset,
+    loading: loadingLight,
+    error: errorLight
   } = useModel('/models/modernart1-sculpt-1.glb')
   
   const {
-    asset: abstractAsset,
-    loading: loadingAbstract,
-    error: errorAbstract
+    asset: darkAsset,
+    loading: loadingDark,
+    error: errorDark
   } = useModel('/models/dezimiertt-glb-03.glb')
 
   // 2. Show a loading state until BOTH are ready
-  if (loadingModern || loadingAbstract) return <div>Loading models...</div>
-  if (errorModern) return <div>Error loading modern model: {String(errorModern)}</div>
-  if (errorAbstract) return <div>Error loading abstract model: {String(errorAbstract)}</div>
-  if (!modernAsset || !abstractAsset) return null
+  if (loadingLight || loadingDark) return <div>Loading models...</div>
+  if (errorLight) return <div>Error loading light model: {String(errorLight)}</div>
+  if (errorDark) return <div>Error loading dark model: {String(errorDark)}</div>
+  if (!lightAsset || !darkAsset) return null
 
   // 3. Just pick which asset to show.
-  const assetToRender = currentModel === 'abstract' ? abstractAsset : modernAsset
+  const assetToRender = currentModel === 'dark' ? darkAsset : lightAsset
 
   // const { asset, loading, error } = useModel(modelSrc)
 /* 

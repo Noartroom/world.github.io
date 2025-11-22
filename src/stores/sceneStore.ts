@@ -8,9 +8,9 @@ export { onSet };
 export const isDynamicLightActive = atom(false);
 
 // --- Model State ---
-export const activeModel = persistentAtom<'modern' | 'abstract'>(
+export const activeModel = persistentAtom<'light' | 'dark'>(
   'activeModel',
-  'modern'
+  'light'
 );
 
 // --- Theme State ---
