@@ -48,6 +48,13 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   let lastX = 0;
   let lastY = 0;
   let isDraggingBlob = false;
+  
+  // Performance: Cache DOM queries and computed values
+  let cachedCanvasRect = null;
+  let lastCachedRectTime = 0;
+  const RECT_CACHE_DURATION = 100; // Cache rect for 100ms
+  let cachedTheme = null;
+  let cachedOverlayGradient = null;
 
   // --- SOTA Render Loop ---
   function renderLoop(timestamp) {
@@ -161,50 +168,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
                 state.updateAudioData(audioData);
 
-                // Update CSS light (completely independent of audio and blob)
-                // Light position is updated in pointermove handler
-                // This should always work when dynamic light is active, regardless of blob state
-                const dynamicLightEnabled = isDynamicLightActive.get();
-                
-                // Always update CSS overlay when dynamic light is active (independent of blob)
-                if (container && dynamicLightEnabled) {
-                   const overlay = container.querySelector('.css-light-overlay');
-                   
-                   if (overlay) {
-                        const currentTheme = theme.get();
-                        const isDark = currentTheme === 'dark';
-                        
-                        // Further increased opacity for much stronger emittance effect
-                        const baseOpacity = isDark ? 0.55 : 0.65; // Significantly increased
-                        overlay.style.opacity = baseOpacity.toFixed(2);
-                        
-                        // Theme-based color temperature (static, no audio)
-                        let r, g, b;
-                        if (isDark) {
-                            r = 240;
-                            g = 245;
-                            b = 255;
-                        } else {
-                            r = 255;
-                            g = 250;
-                            b = 240;
-                        }
-                        
-                        // Larger, more intense radial gradient for much stronger emittance
-                        overlay.style.background = `radial-gradient(
-                            circle 1800px at var(--light-x, 50%) var(--light-y, 50%),
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity}) 0%,
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.8}) 20%,
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.6}) 40%,
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.3}) 60%,
-                            rgba(0, 0, 0, 0.0) 85%
-                        )`;
-                   }
-                   
-                   // Further increased intensity for much stronger emittance
-                   document.documentElement.style.setProperty('--light-intensity', '2.0'); // Increased from 1.5
-                   document.body.classList.add('light-engine-active');
-                }
+                // CSS overlay high emittance effect removed - only 3D cursor-directed lighting remains
             }
         } catch (audioErr) {
              console.warn("Audio Update Error (Non-fatal):", audioErr);
@@ -238,29 +202,25 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       }
 
       // 1.5 Dynamic Light Sync
+      // Cursor-directed 3D lighting is enabled by default (controlled by isDynamicLightActive)
       // Initialize light position to center
       document.documentElement.style.setProperty('--light-x', '50vw');
       document.documentElement.style.setProperty('--light-y', '50vh');
-      document.documentElement.style.setProperty('--light-intensity', '0');
       
-      // Handle cursor-directed CSS lighting ONLY (no blob interaction)
+      // Handle cursor-directed 3D lighting toggle
+      // When disabled, cursor light should disappear (not stay at last position)
       lightUnsub = onSet(isDynamicLightActive, ({ newValue }) => {
-         if (!newValue && container) {
-             const overlay = container.querySelector('.css-light-overlay');
-             if (overlay) overlay.style.opacity = '0';
-             document.body.classList.remove('light-engine-active');
-             // Keep CSS vars but zero intensity for smooth transitions
-             document.documentElement.style.setProperty('--light-intensity', '0');
-         } else if (newValue) {
-             // Ensure class is added when enabled and initialize position
-             document.body.classList.add('light-engine-active');
-             // Initialize to center if not already set
-             if (!document.documentElement.style.getPropertyValue('--light-x')) {
-               document.documentElement.style.setProperty('--light-x', '50vw');
-               document.documentElement.style.setProperty('--light-y', '50vh');
-             }
+         // Update cursor light active state in Rust
+         if (state && state.setCursorLightActive) {
+             state.setCursorLightActive(newValue);
          }
       });
+      
+      // Initialize cursor light state (enabled by default)
+      if (state && state.setCursorLightActive) {
+          const initialDynamicLight = isDynamicLightActive.get();
+          state.setCursorLightActive(initialDynamicLight);
+      }
 
       // Handle light blob spawning/despawning ONLY (separate from CSS lighting)
       blobUnsub = onSet(isBlobActive, ({ newValue }) => {
@@ -391,6 +351,8 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       // Manuelles Update, respektiert targetDpr
       currentDpr = targetDpr;
       const rect = container.getBoundingClientRect();
+      // Invalidate cached canvas rect when resizing
+      cachedCanvasRect = null;
       const width = Math.max(1, Math.floor(rect.width * currentDpr));
       const height = Math.max(1, Math.floor(rect.height * currentDpr));
       
@@ -454,7 +416,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       }
     });
     
-    // Handle blob click and drag start
+      // Handle blob click and drag start
     let blobClickTimeout = null;
     container.addEventListener('pointerdown', (e) => {
       if (!state) return;
@@ -462,7 +424,13 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       // Only handle blob interactions if blob is active
       const blobActive = isBlobActive.get();
       
-      const rect = canvas.getBoundingClientRect();
+      // Cache rect for pointerdown as well
+      const now = performance.now();
+      if (!cachedCanvasRect || (now - lastCachedRectTime) > RECT_CACHE_DURATION) {
+        cachedCanvasRect = canvas.getBoundingClientRect();
+        lastCachedRectTime = now;
+      }
+      const rect = cachedCanvasRect;
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
@@ -523,7 +491,13 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     });
 
     container.addEventListener('pointermove', (e) => {
-      const rect = canvas.getBoundingClientRect();
+      // Cache getBoundingClientRect() to avoid repeated expensive DOM queries
+      const now = performance.now();
+      if (!cachedCanvasRect || (now - lastCachedRectTime) > RECT_CACHE_DURATION) {
+        cachedCanvasRect = canvas.getBoundingClientRect();
+        lastCachedRectTime = now;
+      }
+      const rect = cachedCanvasRect;
 
       // If dragging blob, cancel click timeout
       if (isDraggingBlob && blobClickTimeout) {
@@ -558,41 +532,14 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
           container.style.cursor = 'grabbing';
         }
         
-        // Always update cursor light position and blob position (if dragging)
-        // This ensures both systems work independently
-        state.update(x, y, rect.width, rect.height);
-        
-        // Update cursor-directed CSS lighting if enabled (completely independent from blob)
-        // This only affects CSS overlay, not 3D scene lighting
-        if (isDynamicLightActive.get()) {
-            
-            // Project cursor-directed 3D light position to 2D screen space for CSS
-            // This always uses cursor position, never blob position
-            if (state.getLightScreenPos) {
-                const screenPos = state.getLightScreenPos();
-                const screenX = screenPos[0]; // 0-1 range
-                const screenY = screenPos[1]; // 0-1 range
-                
-                // Convert to viewport units for CSS
-                const xPercent = screenX * 100;
-                const yPercent = screenY * 100;
-                
-                // Update CSS variables for HTML elements (no audio-directed manipulation)
-                document.documentElement.style.setProperty('--light-x', `${xPercent}vw`);
-                document.documentElement.style.setProperty('--light-y', `${yPercent}vh`);
-                
-                // Also update container overlay (for backward compatibility)
-                container.style.setProperty('--light-x', `${screenX * window.innerWidth}px`);
-                container.style.setProperty('--light-y', `${screenY * window.innerHeight}px`);
-            } else {
-                // Fallback: use mouse position directly (only if blob doesn't exist)
-                const xPercent = (e.clientX / window.innerWidth) * 100;
-                const yPercent = (e.clientY / window.innerHeight) * 100;
-                document.documentElement.style.setProperty('--light-x', `${xPercent}vw`);
-                document.documentElement.style.setProperty('--light-y', `${yPercent}vh`);
-                container.style.setProperty('--light-x', `${e.clientX}px`);
-                container.style.setProperty('--light-y', `${e.clientY}px`);
-            }
+        // Update blob position if dragging (always works)
+        // Update cursor light position (always when dynamic light is active) and blob position (if dragging)
+        // These are independent - cursor light updates when dynamic light is enabled, blob updates when dragging
+        const dynamicLightEnabled = isDynamicLightActive.get();
+        if (dynamicLightEnabled || isDraggingBlob) {
+          // Always update when dynamic light is enabled (regardless of blob state)
+          // Also update when dragging blob (for blob position updates)
+          state.update(x, y, rect.width, rect.height);
         }
       }
     });

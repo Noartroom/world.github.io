@@ -26,14 +26,9 @@ import Renderer from '@/components/Renderer.astro';
   themeButton?.addEventListener('click', () => {
     const currentTheme = theme.get();
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    const currentModel = activeModel.get();
     
+    // Only toggle theme - do not switch model
     theme.set(newTheme);
-    
-    // Only switch the model if it doesn't match the new theme
-    if (currentModel !== newTheme) {
-      activeModel.set(newTheme);
-    }
   });
 
   const modelButton = document.getElementById('modelToggle');

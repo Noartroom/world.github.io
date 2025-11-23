@@ -3,7 +3,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, ImageBitmap, Blob, BlobPropertyBag, CanvasRenderingContext2d};
 use wgpu::util::DeviceExt;
-use glam::{vec2, vec3, vec4, Mat4, Vec2, Vec3, Quat};
+use glam::{vec2, vec3, vec4, Mat4, Vec2, Vec3, Vec4, Quat};
 use std::rc::Rc;
 use std::collections::{HashMap, HashSet};
 use flume::{Sender, Receiver};
@@ -124,40 +124,48 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
 
-        // Fallback for WebGL where copy_external_image_to_texture is not supported/reliable
-        // For production, try `queue.copy_external_image_to_texture` first if on WebGPU
-        let window = web_sys::window().unwrap();
-        let document = window.document().unwrap();
-        let canvas = document.create_element("canvas").unwrap().dyn_into::<HtmlCanvasElement>().unwrap();
-        canvas.set_width(width);
-        canvas.set_height(height);
-        
-        let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<CanvasRenderingContext2d>().unwrap();
-        ctx.draw_image_with_image_bitmap(&bitmap, 0.0, 0.0).unwrap();
-        
-        let image_data = ctx.get_image_data(0.0, 0.0, width as f64, height as f64).unwrap();
-        let data = image_data.data();
-        let bytes = data.to_vec();
+        // Try efficient WebGPU path first (copy_external_image_to_texture)
+        // This is much faster than the canvas fallback as it avoids CPU-side pixel data copying
+        // Note: copy_external_image_to_texture doesn't return Result in wgpu 0.20, it panics on error
+        // So we use a try-catch approach via wasm-bindgen or just always use fallback for safety
+        // For now, we'll use the fallback method which works reliably on both WebGPU and WebGL2
+        let use_fallback = true; // Always use fallback for now - copy_external_image_to_texture API is complex
 
-        queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &bytes,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * width),
-                rows_per_image: Some(height),
-            },
-            size,
-        );
+        // Fallback method that works on both WebGPU and WebGL2
+        if use_fallback {
+            let window = web_sys::window().unwrap();
+            let document = window.document().unwrap();
+            let canvas = document.create_element("canvas").unwrap().dyn_into::<HtmlCanvasElement>().unwrap();
+            canvas.set_width(width);
+            canvas.set_height(height);
+            
+            let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<CanvasRenderingContext2d>().unwrap();
+            ctx.draw_image_with_image_bitmap(&bitmap, 0.0, 0.0).unwrap();
+            
+            let image_data = ctx.get_image_data(0.0, 0.0, width as f64, height as f64).unwrap();
+            let data = image_data.data();
+            let bytes = data.to_vec();
+
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &bytes,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                size,
+            );
+        }
 
         // Generate mipmaps if pipeline is provided
         if let (Some(pipeline), Some(layout)) = (mipmap_pipeline, mipmap_bind_group_layout) {
@@ -229,8 +237,9 @@ struct Mesh {
     normal_view: Rc<wgpu::TextureView>,
     mr_view: Rc<wgpu::TextureView>,
     sampler: Rc<wgpu::Sampler>,
-    #[allow(dead_code)]
     center: Vec3, // For sorting transparent meshes
+    aabb_min: Vec3, // Axis-aligned bounding box minimum
+    aabb_max: Vec3, // Axis-aligned bounding box maximum
 }
 
 struct Model {
@@ -238,6 +247,7 @@ struct Model {
     transparent_meshes: Vec<Mesh>,
 }
 
+// Generate a light bulb mesh for the light blob
 // Generate a simple sphere mesh for the light blob
 fn create_sphere_mesh(device: &wgpu::Device, queue: &wgpu::Queue, radius: f32, segments: u32, position: Vec3, material_layout: &wgpu::BindGroupLayout) -> Mesh {
     let mut positions = Vec::new();
@@ -311,7 +321,6 @@ fn create_sphere_mesh(device: &wgpu::Device, queue: &wgpu::Queue, radius: f32, s
     
     // Create highly emissive material for glowing blob (bright yellow-white)
     let emissive_texture = Texture::single_pixel(device, queue, [255, 255, 200, 255], true); // Bright yellow-white
-    let metallic_texture = Texture::single_pixel(device, queue, [255, 255, 255, 255], false); // White = fully metallic
     let smooth_texture = Texture::single_pixel(device, queue, [0, 0, 0, 255], false); // Black = smooth (low roughness)
     let white_normal = Texture::single_pixel(device, queue, [128, 128, 255, 255], false);
     
@@ -343,6 +352,10 @@ fn create_sphere_mesh(device: &wgpu::Device, queue: &wgpu::Queue, radius: f32, s
         label: None,
     });
     
+    // Calculate AABB for sphere
+    let aabb_min = position - Vec3::splat(radius);
+    let aabb_max = position + Vec3::splat(radius);
+    
     Mesh {
         vertex_buffer,
         index_buffer,
@@ -355,7 +368,9 @@ fn create_sphere_mesh(device: &wgpu::Device, queue: &wgpu::Queue, radius: f32, s
         normal_view: Rc::new(white_normal.view),
         mr_view: Rc::new(smooth_texture.view),
         sampler,
-        center: Vec3::ZERO,
+        center: position,
+        aabb_min,
+        aabb_max,
     }
 }
 
@@ -439,6 +454,11 @@ fn create_ring_mesh(device: &wgpu::Device, queue: &wgpu::Queue, center: Vec3, ra
         label: None,
     });
     
+    // Calculate AABB for ring (circle in XZ plane)
+    let ring_center = vec3(center.x, center.y + y_height, center.z);
+    let aabb_min = ring_center - vec3(radius, 0.01, radius); // Small Y extent for flat ring
+    let aabb_max = ring_center + vec3(radius, 0.01, radius);
+    
     Mesh {
         vertex_buffer,
         index_buffer,
@@ -451,7 +471,9 @@ fn create_ring_mesh(device: &wgpu::Device, queue: &wgpu::Queue, center: Vec3, ra
         normal_view: Rc::new(white_normal.view),
         mr_view: Rc::new(smooth_texture.view),
         sampler,
-        center: Vec3::ZERO,
+        center: ring_center,
+        aabb_min,
+        aabb_max,
     }
 }
 
@@ -522,7 +544,6 @@ pub struct State {
     opaque_pipeline: wgpu::RenderPipeline,
     transparent_pipeline: wgpu::RenderPipeline,
     line_pipeline: wgpu::RenderPipeline, // Pipeline for line rendering (orbital path)
-    sky_pipeline: wgpu::RenderPipeline,
     mipmap_pipeline_linear: Rc<wgpu::RenderPipeline>,
     mipmap_pipeline_srgb: Rc<wgpu::RenderPipeline>,
     mipmap_bind_group_layout: Rc<wgpu::BindGroupLayout>,
@@ -531,6 +552,7 @@ pub struct State {
     audio_buffer: wgpu::Buffer,
     audio_bind_group: wgpu::BindGroup,
     audio_data: Vec<u8>,
+    cached_audio_intensity: f32, // Cached audio intensity to avoid redundant calculations
     
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
@@ -544,6 +566,7 @@ pub struct State {
     light_bind_group: wgpu::BindGroup,
     light_pos_3d: Vec3, // 3D scene light position (blob light OR cursor light, whichever is active)
     cursor_light_pos_3d: Vec3, // Cursor-directed light position (for CSS projection and 3D when dynamic light active)
+    cursor_light_active: bool, // Track if cursor light should be active (controlled by dynamic light toggle)
     blob_light_pos_3d: Vec3, // Blob light position (independent, always active when blob exists and enabled)
     #[allow(dead_code)]
     light_pos_2d: Vec2,
@@ -561,7 +584,6 @@ pub struct State {
     blob_dragging: bool,
     blob_drag_offset: Vec3, // Offset from blob center when drag started
     
-    // Model System
     // Model System
     model: Option<Model>,
     model_center: Vec3, // Center position of the loaded model (for gravitational attraction)
@@ -742,6 +764,66 @@ impl State {
         };
         self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[uniform]));
     }
+
+    // Frustum culling: Check if AABB is visible in camera frustum
+    fn is_aabb_in_frustum(&self, aabb_min: Vec3, aabb_max: Vec3) -> bool {
+        // Get camera matrices
+        let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+        let y = self.camera_radius * self.camera_polar.cos();
+        let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+        let cam_pos = vec3(x, y, z) + self.camera_target;
+        
+        let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+        let proj = Mat4::perspective_rh(45.0_f32.to_radians(), self.config.width as f32 / self.config.height as f32, 0.1, 100.0);
+        let view_proj = proj * view;
+
+        // Extract frustum planes from view-projection matrix
+        // For column-major matrices, we extract planes from rows (transposed access)
+        // Frustum planes: left, right, bottom, top, near, far
+        let m = view_proj.to_cols_array_2d();
+        let planes = [
+            // Left plane (row 3 + row 0)
+            vec4(m[3][0] + m[0][0], m[3][1] + m[0][1], m[3][2] + m[0][2], m[3][3] + m[0][3]),
+            // Right plane (row 3 - row 0)
+            vec4(m[3][0] - m[0][0], m[3][1] - m[0][1], m[3][2] - m[0][2], m[3][3] - m[0][3]),
+            // Bottom plane (row 3 + row 1)
+            vec4(m[3][0] + m[1][0], m[3][1] + m[1][1], m[3][2] + m[1][2], m[3][3] + m[1][3]),
+            // Top plane (row 3 - row 1)
+            vec4(m[3][0] - m[1][0], m[3][1] - m[1][1], m[3][2] - m[1][2], m[3][3] - m[1][3]),
+            // Near plane (row 3 + row 2)
+            vec4(m[3][0] + m[2][0], m[3][1] + m[2][1], m[3][2] + m[2][2], m[3][3] + m[2][3]),
+            // Far plane (row 3 - row 2)
+            vec4(m[3][0] - m[2][0], m[3][1] - m[2][1], m[3][2] - m[2][2], m[3][3] - m[2][3]),
+        ];
+
+        // Normalize planes
+        let planes: Vec<Vec4> = planes.iter().map(|p| {
+            let len = (p.x * p.x + p.y * p.y + p.z * p.z).sqrt();
+            if len > 0.0001 {
+                *p / len
+            } else {
+                *p
+            }
+        }).collect();
+
+        // Test AABB against each frustum plane
+        for plane in planes {
+            // Find the positive vertex (P-vertex) of the AABB for this plane
+            let p_vertex = vec3(
+                if plane.x >= 0.0 { aabb_max.x } else { aabb_min.x },
+                if plane.y >= 0.0 { aabb_max.y } else { aabb_min.y },
+                if plane.z >= 0.0 { aabb_max.z } else { aabb_min.z },
+            );
+
+            // If P-vertex is outside the plane, the AABB is outside the frustum
+            let distance = plane.x * p_vertex.x + plane.y * p_vertex.y + plane.z * p_vertex.z + plane.w;
+            if distance < 0.0 {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 #[wasm_bindgen]
@@ -754,32 +836,75 @@ impl State {
         self.update_theme_lighting();
     }
     
+    #[wasm_bindgen(js_name = "setCursorLightActive")]
+    pub fn set_cursor_light_active(&mut self, active: bool) {
+        self.cursor_light_active = active;
+        // Reset cursor light position when disabled to prevent it from staying at last position
+        if !active {
+            self.cursor_light_pos_3d = vec3(0.0, 2.0, 0.0); // Reset to default position
+        }
+        // Immediately recalculate the final light position based on current state
+        let blob_active = self.blob_exists && self.blob_light_enabled;
+        let cursor_active = self.cursor_light_active;
+        
+        if blob_active && cursor_active {
+            // Both active - blend their positions
+            self.light_pos_3d = self.blob_light_pos_3d * 0.6 + self.cursor_light_pos_3d * 0.4;
+        } else if blob_active {
+            // Only blob light active - use blob position only
+            self.light_pos_3d = self.blob_light_pos_3d;
+        } else if cursor_active {
+            // Only cursor light active
+            self.light_pos_3d = self.cursor_light_pos_3d;
+        } else {
+            // Neither active - use default position (center, above model)
+            self.light_pos_3d = vec3(0.0, 5.0, 0.0);
+        }
+        // Update lighting immediately
+        self.update_theme_lighting();
+    }
+    
     // Update lighting colors based on current theme (no audio influence)
     // Determines which light to use: blob light (if exists and enabled) OR cursor light (if dynamic light active)
     fn update_theme_lighting(&mut self) {
-        // Priority: Blob light if blob exists and enabled, otherwise cursor light if dynamic light active
-        // Note: This function is called from render loop, so we need to determine the active light here
-        // For now, we'll use blob light if available, otherwise cursor light
-        // The actual selection happens in the render loop before calling this
         let light_pos = self.light_pos_3d;
+        
+        // Increase intensity for both blob and cursor lights
+        // Base boost: 2.0x for all lights, additional 0.5x when blob is active
+        let blob_active = self.blob_exists && self.blob_light_enabled;
+        let base_intensity_boost = 2.0; // Increased from 1.0 - brighter lights overall
+        let blob_additional_boost = if blob_active { 0.5 } else { 0.0 }; // Extra boost for blob
+        let intensity_boost = base_intensity_boost + blob_additional_boost;
         
         if self.is_dark_theme {
             // Dark theme: Cool, subtle lighting (blue-white tones)
             // Ambient: Very dark blue-gray (static, no audio)
-            // Main light: Cool white with slight blue tint (static intensity)
+            // Main light: Cool white with slight blue tint (boosted when blob is active)
+            let base_color: [f32; 4] = [0.95, 0.97, 1.0, 1.0]; // Cool white
             let light_uniform = LightUniform {
                 position: [light_pos.x, light_pos.y, light_pos.z, 1.0],
-                color: [0.95, 0.97, 1.0, 1.0], // Cool white (no audio boost)
+                color: [
+                    (base_color[0] * intensity_boost).min(1.0f32),
+                    (base_color[1] * intensity_boost).min(1.0f32),
+                    (base_color[2] * intensity_boost).min(1.0f32),
+                    1.0
+                ],
                 ambient_color: [0.02, 0.02, 0.03, 1.0] // Static ambient (no audio pulse)
             };
             self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_uniform]));
         } else {
             // Light theme: Warm, bright lighting (yellow-white tones)
             // Ambient: Light warm gray (static, no audio)
-            // Main light: Warm white with slight yellow tint (static intensity)
+            // Main light: Warm white with slight yellow tint (boosted when blob is active)
+            let base_color: [f32; 4] = [1.0, 0.98, 0.95, 1.0]; // Warm white
             let light_uniform = LightUniform {
                 position: [light_pos.x, light_pos.y, light_pos.z, 1.0],
-                color: [1.0, 0.98, 0.95, 1.0], // Warm white (no audio boost)
+                color: [
+                    (base_color[0] * intensity_boost).min(2.5f32), // Allow values > 1.0 for HDR-like effect
+                    (base_color[1] * intensity_boost).min(2.5f32),
+                    (base_color[2] * intensity_boost).min(2.5f32),
+                    1.0
+                ],
                 ambient_color: [0.15, 0.15, 0.15, 1.0] // Static ambient (no audio pulse)
             };
             self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_uniform]));
@@ -969,6 +1094,8 @@ impl State {
                                         mr_view: white_view_linear.clone(),
                                         sampler: sampler.clone(),
                                         center,
+                                        aabb_min: min,
+                                        aabb_max: max,
                                     };
 
                                     match mat.alpha_mode() {
@@ -1048,14 +1175,17 @@ impl State {
     }
 
     pub fn update(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) {
-        // Always update cursor light position for CSS (independent of blob)
-        let x_pos = (mouse_x / screen_width - 0.5) * 20.0;
-        let z_pos = (mouse_y / screen_height - 0.5) * 20.0;
-        self.cursor_light_pos_3d = vec3(x_pos, 2.0, z_pos);
+        // Update cursor light position for 3D scene (only if cursor light is active)
+        if self.cursor_light_active {
+            let x_pos = (mouse_x / screen_width - 0.5) * 20.0;
+            let z_pos = (mouse_y / screen_height - 0.5) * 20.0;
+            self.cursor_light_pos_3d = vec3(x_pos, 2.0, z_pos);
+        }
         
-        // If dragging blob, update blob target position using proper 3D unprojection
+        // If dragging blob, update blob target position using improved 3D ray-sphere intersection
+        // This provides more intuitive dragging that follows the mouse naturally in 3D space
         if self.blob_dragging && self.blob_exists {
-            // Unproject mouse position to 3D world space at blob's target Y plane
+            // Unproject mouse position to 3D world space
             let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
             let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0; // Flip Y
             
@@ -1076,17 +1206,32 @@ impl State {
             let near_world = vec3(near_point.x, near_point.y, near_point.z) / near_point.w;
             let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
             let ray_dir = (far_world - near_world).normalize();
+            let ray_origin = near_world;
             
-            // Intersect ray with horizontal plane at blob's current Y position
-            // This allows dragging in XZ plane while Y is controlled by scroll
-            let plane_y = self.blob_target_position.y;
-            if ray_dir.y.abs() > 0.001 {
-                let t = (plane_y - near_world.y) / ray_dir.y;
-                let intersection = near_world + ray_dir * t;
+            // Intersect ray with sphere centered at model center
+            // This provides more natural 3D dragging that follows mouse movement
+            let sphere_center = self.model_center;
+            let to_model = self.blob_target_position - sphere_center;
+            let current_radius = to_model.length().max(2.0).min(8.0); // Use current blob distance as sphere radius
+            
+            let oc = ray_origin - sphere_center;
+            let a = ray_dir.dot(ray_dir);
+            let b = 2.0 * oc.dot(ray_dir);
+            let c = oc.dot(oc) - current_radius * current_radius;
+            let discriminant = b * b - 4.0 * a * c;
+            
+            if discriminant >= 0.0 {
+                let sqrt_disc = discriminant.sqrt();
+                let t1 = (-b - sqrt_disc) / (2.0 * a);
+                let t2 = (-b + sqrt_disc) / (2.0 * a);
                 
-                // Update target position (X and Z from intersection, Y stays from scroll)
-                // The plane locking will be applied in the update() function
-                self.blob_target_position = vec3(intersection.x, plane_y, intersection.z);
+                // Use the closer intersection point (positive t)
+                let t = if t1 > 0.0 { t1 } else if t2 > 0.0 { t2 } else { return; };
+                
+                let intersection = ray_origin + ray_dir * t;
+                
+                // Update target position - will be constrained to orbital path in update() function
+                self.blob_target_position = intersection;
             }
         }
         
@@ -1169,8 +1314,8 @@ impl State {
                 self.blob_mesh = Some(create_sphere_mesh(
                     &self.device,
                     &self.queue,
-                    0.5, // Increased radius for better visibility and easier grabbing
-                    20,  // More segments for smoother appearance
+                    0.5, // Radius for the sphere
+                    20,  // Segments for smoother appearance
                     self.blob_position,
                     &self.material_layout,
                 ));
@@ -1180,14 +1325,8 @@ impl State {
             self.blob_light_pos_3d = self.blob_position;
         }
         
-        // Update 3D scene light: Use blob light if blob exists and enabled, otherwise use cursor light
-        // This makes blob light independent - it always works when blob exists and is enabled
-        if self.blob_exists && self.blob_light_enabled {
-            self.light_pos_3d = self.blob_light_pos_3d;
-        } else {
-            // Use cursor light (will be updated by dynamic light system if active)
-            self.light_pos_3d = self.cursor_light_pos_3d;
-        }
+        // Light position blending is handled in render() function
+        // This ensures both blob and cursor lights can contribute simultaneously
     }
     
     // Update blob Y position (for scroll during drag)
@@ -1231,12 +1370,12 @@ impl State {
             self.blob_dragging = false;
             self.blob_drag_offset = Vec3::ZERO;
             
-            // Create sphere mesh for blob (larger radius for better visibility)
+            // Create sphere mesh for blob
             self.blob_mesh = Some(create_sphere_mesh(
                 &self.device,
                 &self.queue,
-                0.5, // Increased radius for better visibility and easier grabbing
-                20,  // More segments for smoother appearance
+                0.5, // Radius for the sphere
+                20,  // Segments for smoother appearance
                 self.blob_position,
                 &self.material_layout,
             ));
@@ -1254,8 +1393,7 @@ impl State {
             
             // Initialize blob light position
             self.blob_light_pos_3d = self.blob_position;
-            // Update 3D scene light to use blob light
-            self.light_pos_3d = self.blob_light_pos_3d;
+            // Light position blending is handled in render() function
             self.update_theme_lighting();
         }
     }
@@ -1267,9 +1405,8 @@ impl State {
         self.blob_mesh = None;
         self.blob_orbital_path_mesh = None;
         self.blob_dragging = false;
-        // When blob is despawned, switch to cursor light (if dynamic light is active)
-        // Otherwise light will be at default position
-        self.light_pos_3d = self.cursor_light_pos_3d;
+        // Light position blending is handled in render() function
+        // When blob is despawned, render() will automatically use cursor light
         self.update_theme_lighting();
     }
     
@@ -1278,17 +1415,12 @@ impl State {
     pub fn toggle_blob_light(&mut self) {
         if self.blob_exists {
             self.blob_light_enabled = !self.blob_light_enabled;
-            // Update blob light position
+            // Update blob light position if enabled
             if self.blob_light_enabled {
                 self.blob_light_pos_3d = self.blob_position;
             }
-            // Update 3D scene light based on new state
-            if self.blob_light_enabled {
-                self.light_pos_3d = self.blob_light_pos_3d;
-            } else {
-                // Blob light off - use cursor light if available
-                self.light_pos_3d = self.cursor_light_pos_3d;
-            }
+            // Light position blending is handled in render() function
+            // This allows both blob and cursor lights to work independently
             self.update_theme_lighting();
         }
     }
@@ -1483,30 +1615,47 @@ impl State {
             }
         }
 
-        // 1. Calculate Audio Stats (intensity only - no position changes)
+        // 1. Calculate Audio Stats (intensity only - no position changes) - cache for reuse
         let avg_volume = if self.audio_data.is_empty() {
             0.0
         } else {
             let sum: u32 = self.audio_data.iter().map(|&x| x as u32).sum();
             sum as f32 / self.audio_data.len() as f32
         };
-        let intensity = (avg_volume / 255.0).min(1.0);
+        self.cached_audio_intensity = (avg_volume / 255.0).min(1.0);
 
         // 2. Update Audio Uniform (balance kept at 0.0 - not used for lighting)
-        let audio_uniform = AudioUniform { intensity, balance: 0.0, _pad1: 0.0, _pad2: 0.0 };
+        let audio_uniform = AudioUniform { intensity: self.cached_audio_intensity, balance: 0.0, _pad1: 0.0, _pad2: 0.0 };
         self.queue.write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(&[audio_uniform]));
         
         // 3. Update lighting (ensure it's updated every frame)
-        // Blob light is independent - always active when blob exists and enabled
-        // For 3D scene: prioritize blob light if active, otherwise use cursor light
-        // Note: CSS lighting uses cursor light independently (handled in JavaScript)
+        // Both blob light and cursor light can be active simultaneously
+        // When both are active, blend their positions to create combined lighting
+        // Update blob light position if blob exists and is enabled
         if self.blob_exists && self.blob_light_enabled {
-            // Update blob light position to current blob position
             self.blob_light_pos_3d = self.blob_position;
+        }
+        
+        // Determine final light position based on which lights are active
+        // Cursor light is only active when cursor_light_active is true (controlled by dynamic light toggle)
+        // When blob is active, blend with cursor light ONLY if cursor is also active
+        let blob_active = self.blob_exists && self.blob_light_enabled;
+        let cursor_active = self.cursor_light_active;
+        
+        // IMPORTANT: Only use cursor_light_pos_3d if cursor_light_active is true
+        // This ensures cursor light is completely disabled when toggled off
+        if blob_active && cursor_active {
+            // Both active - blend their positions
+            self.light_pos_3d = self.blob_light_pos_3d * 0.6 + self.cursor_light_pos_3d * 0.4;
+        } else if blob_active {
+            // Only blob light active - cursor light is completely ignored
             self.light_pos_3d = self.blob_light_pos_3d;
-        } else {
-            // Use cursor light (for dynamic light system)
+        } else if cursor_active {
+            // Only cursor light active
             self.light_pos_3d = self.cursor_light_pos_3d;
+        } else {
+            // Neither active - use default position (center, above model)
+            self.light_pos_3d = vec3(0.0, 5.0, 0.0);
         }
         self.update_theme_lighting();
 
@@ -1576,17 +1725,9 @@ impl State {
             // render_pass.draw(0..3, 0..1);
 
             // Draw Grid (High-Fidelity Sound Wave Visualization) - Only when audio is active
-            // Check if audio is active (intensity > threshold)
-            let audio_intensity = if self.audio_data.is_empty() {
-                0.0
-            } else {
-                let sum: u32 = self.audio_data.iter().map(|&x| x as u32).sum();
-                let avg = sum as f32 / self.audio_data.len() as f32;
-                (avg / 255.0).min(1.0)
-            };
-            
+            // Use cached audio intensity (calculated once at start of render)
             // Only render grid if audio is active (intensity > 0.01 to avoid noise)
-            if audio_intensity > 0.01 {
+            if self.cached_audio_intensity > 0.01 {
             render_pass.set_pipeline(&self.grid_pipeline);
             // Grid layout is Group 0 (Audio) & 1 (Camera).
             // These slots are already bound correctly from the "Global Groups" section above.
@@ -1601,17 +1742,43 @@ impl State {
                 // Bindings 0, 1, 2 are already set above and valid for Opaque Pipeline too
                 
                 for mesh in &model.opaque_meshes {
+                    // Frustum culling: skip meshes outside camera view
+                    if !self.is_aabb_in_frustum(mesh.aabb_min, mesh.aabb_max) {
+                        continue;
+                    }
+                    
                     render_pass.set_bind_group(3, &mesh.material_bind_group, &[]);
                     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
                 }
 
-                // Draw Model Transparent (Sorted)
-                 // Sorting usually happens outside pass, but we can't mutate self inside render pass due to borrow checker if we hold ref to meshes.
-                 // Ideally sort before pass. For now, just draw.
+                // Draw Model Transparent (Sorted by distance from camera)
+                // Sort transparent meshes before rendering for correct alpha blending
+                // Get camera position for sorting
+                let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+                let y = self.camera_radius * self.camera_polar.cos();
+                let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+                let cam_pos = vec3(x, y, z) + self.camera_target;
+                
+                // Create sorted list of visible transparent meshes with their distances
+                let mut transparent_to_draw: Vec<(&Mesh, f32)> = model.transparent_meshes.iter()
+                    .filter_map(|mesh| {
+                        // Frustum culling: skip meshes outside camera view
+                        if !self.is_aabb_in_frustum(mesh.aabb_min, mesh.aabb_max) {
+                            return None;
+                        }
+                        // Calculate distance from camera to mesh center
+                        let distance = (mesh.center - cam_pos).length_squared(); // Use squared distance for efficiency
+                        Some((mesh, distance))
+                    })
+                    .collect();
+                
+                // Sort by distance (farthest first for correct back-to-front rendering)
+                transparent_to_draw.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                
                 render_pass.set_pipeline(&self.transparent_pipeline);
-                for mesh in &model.transparent_meshes {
+                for (mesh, _) in transparent_to_draw {
                     render_pass.set_bind_group(3, &mesh.material_bind_group, &[]);
                     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -1621,14 +1788,19 @@ impl State {
             
             // Draw Orbital Path (if blob exists) - rendered as line ring
             if let Some(path_mesh) = &self.blob_orbital_path_mesh {
-                render_pass.set_pipeline(&self.line_pipeline);
-                render_pass.set_bind_group(3, &path_mesh.material_bind_group, &[]);
-                render_pass.set_vertex_buffer(0, path_mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(path_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..path_mesh.num_indices, 0, 0..1);
+                // Frustum culling: skip if path is outside camera view
+                if self.is_aabb_in_frustum(path_mesh.aabb_min, path_mesh.aabb_max) {
+                    render_pass.set_pipeline(&self.line_pipeline);
+                    render_pass.set_bind_group(3, &path_mesh.material_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, path_mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(path_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..path_mesh.num_indices, 0, 0..1);
+                }
             }
             
             // Draw Light Blob (if exists) - rendered as opaque sphere
+            // Note: No frustum culling for blob - it should always be visible when it exists
+            // to prevent it from disappearing during orbital movement
             if let Some(blob_mesh) = &self.blob_mesh {
                 render_pass.set_pipeline(&self.opaque_pipeline);
                 render_pass.set_bind_group(3, &blob_mesh.material_bind_group, &[]);
@@ -1652,7 +1824,12 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
     web_sys::console::log_1(&"Initializing Advanced WGPU Renderer (No MSAA)...".into());
 
     let instance = wgpu::Instance::default();
-    let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone())).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    
+    // For wgpu 0.20 on web, use SurfaceTarget::Canvas directly
+    // This is the correct and supported API for HtmlCanvasElement
+    // Note: HtmlCanvasElement::clone() is cheap (just a reference clone)
+    let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
+        .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {}", e)))?;
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: Some(&surface), force_fallback_adapter: false }).await.ok_or_else(|| JsValue::from_str("No adapter"))?;
     
     // Request device with more features if possible
@@ -1777,13 +1954,6 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         push_constant_ranges: &[] 
     });
 
-    // Sky Pipeline Layout
-    let sky_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Sky Pipeline Layout"),
-        bind_group_layouts: &[&audio_layout, &camera_layout, &light_layout],
-        push_constant_ranges: &[],
-    });
-
     // Grid Pipeline Layout (Audio, Camera, and Light - needed for theme detection)
     let grid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Grid Pipeline Layout"),
@@ -1838,16 +2008,6 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
             conservative: false,
         }, 
         depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: false, depth_compare: wgpu::CompareFunction::Less, stencil: Default::default(), bias: Default::default() }),
-        multisample: wgpu::MultisampleState { count: actual_sample_count, mask: !0, alpha_to_coverage_enabled: false },
-        multiview: None
-    });
-
-    let sky_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Sky Pipeline"), layout: Some(&sky_pipeline_layout),
-        vertex: wgpu::VertexState { module: &shader, entry_point: "vs_sky", buffers: &[], compilation_options: Default::default() },
-        fragment: Some(wgpu::FragmentState { module: &shader, entry_point: "fs_sky", targets: &[Some(wgpu::ColorTargetState { format: config.format, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
-        primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() }, 
-        depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: false, depth_compare: wgpu::CompareFunction::LessEqual, stencil: Default::default(), bias: Default::default() }),
         multisample: wgpu::MultisampleState { count: actual_sample_count, mask: !0, alpha_to_coverage_enabled: false },
         multiview: None
     });
@@ -1924,14 +2084,14 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
     Ok(State {
         surface, device: Rc::new(device), queue: Rc::new(queue), config, depth_texture, depth_view,
         msaa_texture, msaa_view, sample_count: actual_sample_count,
-        grid_pipeline, opaque_pipeline, transparent_pipeline, line_pipeline, sky_pipeline,
+        grid_pipeline, opaque_pipeline, transparent_pipeline, line_pipeline,
         mipmap_pipeline_linear: Rc::new(mipmap_pipeline_linear),
         mipmap_pipeline_srgb: Rc::new(mipmap_pipeline_srgb),
         mipmap_bind_group_layout: Rc::new(mipmap_bind_group_layout),
-        audio_buffer, audio_bind_group, audio_data: Vec::new(),
+        audio_buffer, audio_bind_group, audio_data: Vec::new(), cached_audio_intensity: 0.0,
         camera_buffer, camera_bind_group, 
         camera_target: Vec3::ZERO, camera_radius: 10.0, camera_azimuth: 0.0, camera_polar: 1.57,
-        light_buffer, light_bind_group, light_pos_3d: Vec3::ZERO, cursor_light_pos_3d: Vec3::ZERO, blob_light_pos_3d: Vec3::ZERO, light_pos_2d: Vec2::ZERO,
+        light_buffer, light_bind_group, light_pos_3d: Vec3::ZERO, cursor_light_pos_3d: Vec3::ZERO, cursor_light_active: true, blob_light_pos_3d: Vec3::ZERO, light_pos_2d: Vec2::ZERO,
         is_dark_theme: true, // Default to dark theme
         blob_exists: false,
         blob_position: vec3(0.0, 5.0, 0.0), // Spawn at top of scene

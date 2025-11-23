@@ -43,7 +43,7 @@ web-sys = { version = "0.3.82", features = [
 ]}
 
 # WebGPU/WGPU-Rendering
-wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stabil und kompatibel mit web-sys 0.3.82
+wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82
 
 # Texture Compression
 ktx2 = "0.3.0"
@@ -63,6 +63,7 @@ flume = "0.11.0"
 
 # Sicherer Umgang mit Puffern
 bytemuck = { version = "1.16.0", features = ["derive"] }
+
 
 [features]
 default = ["console_error_panic_hook"]
