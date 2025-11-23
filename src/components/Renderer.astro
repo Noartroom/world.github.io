@@ -469,13 +469,45 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
         e.preventDefault();
         e.stopPropagation();
         container.setPointerCapture(e.pointerId);
+        container.style.cursor = 'grabbing';
+        
+        // Store initial mouse position to detect drag movement
+        let dragStartX = e.clientX;
+        let dragStartY = e.clientY;
+        let hasDragged = false;
         
         // Set a timeout to toggle light on click (if no drag movement happens)
         blobClickTimeout = setTimeout(() => {
-          if (state.checkBlobClick) {
+          // Only toggle if we haven't dragged significantly
+          if (!hasDragged && state.checkBlobClick) {
             state.checkBlobClick(x, y, rect.width, rect.height);
           }
-        }, 200); // 200ms delay to distinguish click from drag
+        }, 150); // Reduced delay for more responsive clicking
+        
+        // Track drag movement
+        const checkDrag = (moveEvent) => {
+          const dragDistance = Math.sqrt(
+            Math.pow(moveEvent.clientX - dragStartX, 2) + 
+            Math.pow(moveEvent.clientY - dragStartY, 2)
+          );
+          if (dragDistance > 5) { // 5px threshold to distinguish click from drag
+            hasDragged = true;
+            if (blobClickTimeout) {
+              clearTimeout(blobClickTimeout);
+              blobClickTimeout = null;
+            }
+            container.removeEventListener('pointermove', checkDrag);
+          }
+        };
+        container.addEventListener('pointermove', checkDrag, { once: false });
+        
+        // Clean up on pointer up
+        const cleanup = () => {
+          container.removeEventListener('pointermove', checkDrag);
+          container.removeEventListener('pointerup', cleanup);
+        };
+        container.addEventListener('pointerup', cleanup, { once: true });
+        
         return;
       }
       
@@ -510,6 +542,17 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       if (state) {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+        
+        // Update cursor based on blob hover state (visual feedback)
+        if (isBlobActive.get() && !isDraggingBlob && !isDragging) {
+          if (state.isHoveringBlob && state.isHoveringBlob(x, y, rect.width, rect.height)) {
+            container.style.cursor = 'grab';
+          } else {
+            container.style.cursor = 'default';
+          }
+        } else if (isDraggingBlob) {
+          container.style.cursor = 'grabbing';
+        }
         
         // Update blob position if dragging
         if (isBlobActive.get() && isDraggingBlob) {
@@ -555,7 +598,14 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     container.addEventListener('wheel', (e) => {
       if (state) {
         e.preventDefault();
-        state.update_camera(0, 0, e.deltaY * 0.5); 
+        
+        // If dragging blob, use scroll to move blob closer/further (Y axis)
+        if (isBlobActive.get() && isDraggingBlob && state.updateBlobY) {
+          state.updateBlobY(e.deltaY);
+        } else {
+          // Otherwise, scroll controls camera zoom
+          state.update_camera(0, 0, e.deltaY * 0.5); 
+        }
       }
     }, { passive: false });
   }

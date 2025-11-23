@@ -454,9 +454,11 @@ pub struct State {
     // Light Blob (Physical 3D Object)
     blob_exists: bool,
     blob_position: Vec3,
+    blob_target_position: Vec3, // Target position for smooth interpolation
     blob_light_enabled: bool,
     blob_mesh: Option<Mesh>,
     blob_dragging: bool,
+    blob_drag_offset: Vec3, // Offset from blob center when drag started
     
     // Model System
     // Model System
@@ -930,9 +932,9 @@ impl State {
         let z_pos = (mouse_y / screen_height - 0.5) * 20.0;
         self.cursor_light_pos_3d = vec3(x_pos, 2.0, z_pos);
         
-        // If dragging blob, update blob position using proper 3D unprojection
+        // If dragging blob, update blob target position using proper 3D unprojection
         if self.blob_dragging && self.blob_exists {
-            // Unproject mouse position to 3D world space at blob's Y plane
+            // Unproject mouse position to 3D world space at blob's target Y plane
             let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
             let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0; // Flip Y
             
@@ -954,36 +956,57 @@ impl State {
             let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
             let ray_dir = (far_world - near_world).normalize();
             
-            // Intersect ray with plane at blob's Y position
-            let plane_y = self.blob_position.y;
+            // Intersect ray with plane at blob's target Y position (Y can be changed via scroll)
+            let plane_y = self.blob_target_position.y;
             let t = (plane_y - near_world.y) / ray_dir.y;
             let intersection = near_world + ray_dir * t;
             
-            // Update blob position (keep Y, update X and Z from intersection)
-            self.blob_position = vec3(intersection.x, plane_y, intersection.z);
+            // Update target position (X and Z from intersection, Y stays from scroll)
+            self.blob_target_position = vec3(intersection.x, plane_y, intersection.z);
+        }
+        
+        // Smooth interpolation towards target position (every frame, even when not dragging)
+        if self.blob_exists {
+            let smoothing_factor = 0.25; // Higher = faster, lower = smoother (0.1-0.5 range)
+            let diff = self.blob_target_position - self.blob_position;
+            self.blob_position = self.blob_position + diff * smoothing_factor;
             
-            // Recreate blob mesh at new position
-            self.blob_mesh = Some(create_sphere_mesh(
-                &self.device,
-                &self.queue,
-                0.4, // Increased radius for better visibility
-                16,
-                self.blob_position,
-                &self.material_layout,
-            ));
+            // Only recreate mesh if position changed significantly (optimization)
+            if diff.length() > 0.005 {
+                self.blob_mesh = Some(create_sphere_mesh(
+                    &self.device,
+                    &self.queue,
+                    0.4, // Increased radius for better visibility
+                    16,
+                    self.blob_position,
+                    &self.material_layout,
+                ));
+            }
+            
             // Update 3D scene light position to blob position if blob light is enabled
             if self.blob_light_enabled {
                 self.light_pos_3d = self.blob_position;
                 self.update_theme_lighting();
+            } else {
+                // Blob exists but light is off - use cursor position for 3D scene light
+                self.light_pos_3d = self.cursor_light_pos_3d;
+                self.update_theme_lighting();
             }
-        } else if self.blob_exists && self.blob_light_enabled {
-            // Blob exists and light is enabled - use blob position for 3D scene light
-            self.light_pos_3d = self.blob_position;
-            self.update_theme_lighting();
         } else {
-            // No blob or blob light is off - use cursor position for 3D scene light
+            // No blob - use cursor position for 3D scene light
             self.light_pos_3d = self.cursor_light_pos_3d;
             self.update_theme_lighting();
+        }
+    }
+    
+    // Update blob Y position (for scroll during drag)
+    #[wasm_bindgen(js_name = "updateBlobY")]
+    pub fn update_blob_y(&mut self, delta_y: f32) {
+        if self.blob_exists {
+            // Adjust Y position (closer/further from model)
+            // Positive delta = move up (further), negative = move down (closer)
+            let y_change = delta_y * 0.1; // Scale scroll sensitivity
+            self.blob_target_position.y = (self.blob_target_position.y + y_change).clamp(0.5, 15.0); // Limit Y range
         }
     }
     
@@ -993,8 +1016,10 @@ impl State {
         if !self.blob_exists {
             self.blob_exists = true;
             self.blob_position = vec3(0.0, 5.0, 0.0); // Top of scene
+            self.blob_target_position = vec3(0.0, 5.0, 0.0); // Initialize target
             self.blob_light_enabled = true;
             self.blob_dragging = false;
+            self.blob_drag_offset = Vec3::ZERO;
             
             // Create sphere mesh for blob (larger radius for better visibility)
             self.blob_mesh = Some(create_sphere_mesh(
@@ -1038,6 +1063,24 @@ impl State {
         }
     }
     
+    // Check if mouse is hovering over blob (for cursor feedback)
+    #[wasm_bindgen(js_name = "isHoveringBlob")]
+    pub fn is_hovering_blob(&self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) -> bool {
+        if !self.blob_exists {
+            return false;
+        }
+        
+        let blob_screen = self.project_3d_to_screen(self.blob_position);
+        let mouse_norm_x = mouse_x / screen_width;
+        let mouse_norm_y = mouse_y / screen_height;
+        
+        let dist = ((blob_screen[0] - mouse_norm_x).powi(2) + (blob_screen[1] - mouse_norm_y).powi(2)).sqrt();
+        
+        // Larger threshold (15% of screen) for easier interaction
+        // Also check if blob is visible (not behind camera)
+        dist < 0.15 && blob_screen[0] > 0.0 && blob_screen[0] < 1.0 && blob_screen[1] > 0.0 && blob_screen[1] < 1.0
+    }
+    
     // Start dragging blob
     #[wasm_bindgen(js_name = "startDragBlob")]
     pub fn start_drag_blob(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) -> bool {
@@ -1045,17 +1088,12 @@ impl State {
             return false;
         }
         
-        // Simple raycast check: project blob to screen and check if mouse is near
-        let blob_screen = self.project_3d_to_screen(self.blob_position);
-        let mouse_norm_x = mouse_x / screen_width;
-        let mouse_norm_y = mouse_y / screen_height;
-        
-        let dist = ((blob_screen[0] - mouse_norm_x).powi(2) + (blob_screen[1] - mouse_norm_y).powi(2)).sqrt();
-        
-        // Increased threshold to 0.1 (10% of screen) for easier grabbing
-        // Also check if blob is visible (not behind camera)
-        if dist < 0.1 && blob_screen[0] > 0.0 && blob_screen[0] < 1.0 && blob_screen[1] > 0.0 && blob_screen[1] < 1.0 {
+        // Use the same hover detection for drag start
+        if self.is_hovering_blob(mouse_x, mouse_y, screen_width, screen_height) {
             self.blob_dragging = true;
+            // Initialize target position to current position to prevent jumping
+            self.blob_target_position = self.blob_position;
+            self.blob_drag_offset = Vec3::ZERO;
             return true;
         }
         
@@ -1075,15 +1113,8 @@ impl State {
             return false;
         }
         
-        let blob_screen = self.project_3d_to_screen(self.blob_position);
-        let mouse_norm_x = mouse_x / screen_width;
-        let mouse_norm_y = mouse_y / screen_height;
-        
-        let dist = ((blob_screen[0] - mouse_norm_x).powi(2) + (blob_screen[1] - mouse_norm_y).powi(2)).sqrt();
-        
-        // Increased threshold to 0.1 (10% of screen) to match drag detection
-        // Also check if blob is visible (not behind camera)
-        if dist < 0.1 && blob_screen[0] > 0.0 && blob_screen[0] < 1.0 && blob_screen[1] > 0.0 && blob_screen[1] < 1.0 {
+        // Use the same hover detection for click
+        if self.is_hovering_blob(mouse_x, mouse_y, screen_width, screen_height) {
             // Only toggle if not already dragging (to avoid toggling on drag start)
             if !self.blob_dragging {
                 self.toggle_blob_light();
@@ -1604,9 +1635,11 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         is_dark_theme: true, // Default to dark theme
         blob_exists: false,
         blob_position: vec3(0.0, 5.0, 0.0), // Spawn at top of scene
+        blob_target_position: vec3(0.0, 5.0, 0.0), // Target for smooth interpolation
         blob_light_enabled: true,
         blob_mesh: None,
         blob_dragging: false,
+        blob_drag_offset: Vec3::ZERO,
         model: None, material_layout, texture_cache: HashMap::new(), tx, rx
     })
 }
