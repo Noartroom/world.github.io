@@ -4,8 +4,12 @@ import { persistentAtom } from '@nanostores/persistent';
 export { onSet };
 
 // --- Dynamic Light State ---
-// We'll use this in Phase 2
+// Controls cursor-directed CSS-based lighting
 export const isDynamicLightActive = atom(false);
+
+// --- Light Blob State ---
+// Controls the 3D light blob object
+export const isBlobActive = atom(false);
 
 // --- Model State ---
 export const activeModel = persistentAtom<'light' | 'dark'>(

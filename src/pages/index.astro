@@ -10,6 +10,7 @@ import Renderer from '@/components/Renderer.astro';
       <button id="themeToggle" class="global-toggle">Toggle Theme</button>
       <button id="modelToggle" class="global-toggle">Switch Model</button>
       <button id="light-engine-toggle" class="global-toggle">Toggle Dynamic Light</button>
+      <button id="blob-toggle" class="global-toggle">Toggle Light Blob</button>
     </div>
     <Renderer />
     
@@ -19,7 +20,7 @@ import Renderer from '@/components/Renderer.astro';
 </Layout>
 <script>
   // This script controls the global buttons
-  import { theme, activeModel, isDynamicLightActive } from '../stores/sceneStore';
+  import { theme, activeModel, isDynamicLightActive, isBlobActive } from '../stores/sceneStore';
 
   const themeButton = document.getElementById('themeToggle');
   themeButton?.addEventListener('click', () => {
@@ -48,6 +49,11 @@ import Renderer from '@/components/Renderer.astro';
   const lightButton = document.getElementById('light-engine-toggle');
   lightButton?.addEventListener('click', () => {
     isDynamicLightActive.set(!isDynamicLightActive.get());
+  });
+
+  const blobButton = document.getElementById('blob-toggle');
+  blobButton?.addEventListener('click', () => {
+    isBlobActive.set(!isBlobActive.get());
   });
 </script>
 

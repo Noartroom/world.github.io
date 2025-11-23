@@ -238,6 +238,127 @@ struct Model {
     transparent_meshes: Vec<Mesh>,
 }
 
+// Generate a simple sphere mesh for the light blob
+fn create_sphere_mesh(device: &wgpu::Device, queue: &wgpu::Queue, radius: f32, segments: u32, position: Vec3, material_layout: &wgpu::BindGroupLayout) -> Mesh {
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+    
+    // Generate sphere vertices
+    for i in 0..=segments {
+        let theta = (i as f32 / segments as f32) * std::f32::consts::PI;
+        let sin_theta = theta.sin();
+        let cos_theta = theta.cos();
+        
+        for j in 0..=segments {
+            let phi = (j as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+            let sin_phi = phi.sin();
+            let cos_phi = phi.cos();
+            
+            let x = cos_phi * sin_theta;
+            let y = cos_theta;
+            let z = sin_phi * sin_theta;
+            
+            // Transform to blob position
+            positions.push([x * radius + position.x, y * radius + position.y, z * radius + position.z]);
+            normals.push([x, y, z]);
+            uvs.push([j as f32 / segments as f32, i as f32 / segments as f32]);
+        }
+    }
+    
+    // Generate indices
+    for i in 0..segments {
+        for j in 0..segments {
+            let first = (i * (segments + 1) + j) as u32;
+            let second = first + segments + 1;
+            
+            indices.push(first);
+            indices.push(second);
+            indices.push(first + 1);
+            
+            indices.push(second);
+            indices.push(second + 1);
+            indices.push(first + 1);
+        }
+    }
+    
+    // Compute tangents
+    let tangents = compute_tangents(&positions, &normals, &uvs, &indices);
+    
+    // Create vertex buffer
+    let mut vertices = Vec::new();
+    for i in 0..positions.len() {
+        vertices.push(ModelVertex {
+            position: positions[i],
+            normal: normals[i],
+            tex_coord: uvs[i],
+            tangent: tangents.get(i).copied().unwrap_or([1.0, 0.0, 0.0, 1.0]),
+        });
+    }
+    
+    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Blob Vertex Buffer"),
+        contents: bytemuck::cast_slice(&vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    });
+    
+    let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Blob Index Buffer"),
+        contents: bytemuck::cast_slice(&indices),
+        usage: wgpu::BufferUsages::INDEX,
+    });
+    
+    // Create highly emissive material for glowing blob (bright yellow-white)
+    let emissive_texture = Texture::single_pixel(device, queue, [255, 255, 200, 255], true); // Bright yellow-white
+    let metallic_texture = Texture::single_pixel(device, queue, [255, 255, 255, 255], false); // White = fully metallic
+    let smooth_texture = Texture::single_pixel(device, queue, [0, 0, 0, 255], false); // Black = smooth (low roughness)
+    let white_normal = Texture::single_pixel(device, queue, [128, 128, 255, 255], false);
+    
+    let sampler = Rc::new(device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("Blob Sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 100.0,
+        compare: None,
+        anisotropy_clamp: 1,
+        border_color: None,
+    }));
+    
+    let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: material_layout,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&emissive_texture.view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
+            wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&white_normal.view) },
+            wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&sampler) },
+            wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(&smooth_texture.view) }, // Metallic-roughness: smooth for reflection
+            wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Sampler(&sampler) },
+        ],
+        label: None,
+    });
+    
+    Mesh {
+        vertex_buffer,
+        index_buffer,
+        num_indices: indices.len() as u32,
+        material_bind_group,
+        diffuse_index: None,
+        normal_index: None,
+        mr_index: None,
+        diffuse_view: Rc::new(emissive_texture.view),
+        normal_view: Rc::new(white_normal.view),
+        mr_view: Rc::new(smooth_texture.view),
+        sampler,
+        center: Vec3::ZERO,
+    }
+}
+
 fn compute_tangents(positions: &[[f32; 3]], normals: &[[f32; 3]], uvs: &[[f32; 2]], indices: &[u32]) -> Vec<[f32; 4]> {
     let mut tan1 = vec![Vec3::ZERO; positions.len()];
     let mut tan2 = vec![Vec3::ZERO; positions.len()];
@@ -324,10 +445,18 @@ pub struct State {
 
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
-    light_pos_3d: Vec3,
+    light_pos_3d: Vec3, // 3D scene light position (used by blob or cursor)
+    cursor_light_pos_3d: Vec3, // Cursor-directed light position (for CSS projection)
     #[allow(dead_code)]
     light_pos_2d: Vec2,
     is_dark_theme: bool, // Track theme for lighting
+    
+    // Light Blob (Physical 3D Object)
+    blob_exists: bool,
+    blob_position: Vec3,
+    blob_light_enabled: bool,
+    blob_mesh: Option<Mesh>,
+    blob_dragging: bool,
     
     // Model System
     // Model System
@@ -521,44 +650,30 @@ impl State {
         self.update_theme_lighting();
     }
     
-    // Update lighting colors based on current theme and audio intensity
-    // Uses cursor-controlled light position (light_pos_3d)
+    // Update lighting colors based on current theme (no audio influence)
+    // Uses cursor-controlled light position (light_pos_3d) or blob position
     fn update_theme_lighting(&mut self) {
-        // Get current audio intensity for subtle pulsing (0.0 to 1.0)
-        let audio_intensity = if self.audio_data.is_empty() {
-            0.0
-        } else {
-            let sum: u32 = self.audio_data.iter().map(|&x| x as u32).sum();
-            let avg = sum as f32 / self.audio_data.len() as f32;
-            (avg / 255.0).min(1.0)
-        };
-        
-        // Light intensity scales with audio (stronger when audio is louder)
-        let base_intensity = 1.0;
-        let audio_boost = 1.0 + audio_intensity * 0.5; // Up to 50% boost
-        let intensity_boost = base_intensity * audio_boost;
-        
-        // Use cursor-controlled light position (drag-controlled)
+        // Use cursor-controlled light position (drag-controlled) or blob position
         let light_pos = self.light_pos_3d;
         
         if self.is_dark_theme {
             // Dark theme: Cool, subtle lighting (blue-white tones)
-            // Ambient: Very dark blue-gray with subtle audio pulsing
-            // Main light: Cool white with slight blue tint, audio-reactive intensity
+            // Ambient: Very dark blue-gray (static, no audio)
+            // Main light: Cool white with slight blue tint (static intensity)
             let light_uniform = LightUniform {
                 position: [light_pos.x, light_pos.y, light_pos.z, 1.0],
-                color: [0.95 * intensity_boost, 0.97 * intensity_boost, 1.0 * intensity_boost, 1.0], // Cool white with audio boost
-                ambient_color: [0.02 + audio_intensity * 0.01, 0.02 + audio_intensity * 0.01, 0.03 + audio_intensity * 0.01, 1.0] // Subtle ambient pulse
+                color: [0.95, 0.97, 1.0, 1.0], // Cool white (no audio boost)
+                ambient_color: [0.02, 0.02, 0.03, 1.0] // Static ambient (no audio pulse)
             };
             self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_uniform]));
         } else {
             // Light theme: Warm, bright lighting (yellow-white tones)
-            // Ambient: Light warm gray with subtle audio pulsing
-            // Main light: Warm white with slight yellow tint, audio-reactive intensity
+            // Ambient: Light warm gray (static, no audio)
+            // Main light: Warm white with slight yellow tint (static intensity)
             let light_uniform = LightUniform {
                 position: [light_pos.x, light_pos.y, light_pos.z, 1.0],
-                color: [1.0 * intensity_boost, 0.98 * intensity_boost, 0.95 * intensity_boost, 1.0], // Warm white with audio boost
-                ambient_color: [0.15 + audio_intensity * 0.05, 0.15 + audio_intensity * 0.05, 0.15 + audio_intensity * 0.05, 1.0] // Subtle ambient pulse
+                color: [1.0, 0.98, 0.95, 1.0], // Warm white (no audio boost)
+                ambient_color: [0.15, 0.15, 0.15, 1.0] // Static ambient (no audio pulse)
             };
             self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[light_uniform]));
         }
@@ -810,13 +925,201 @@ impl State {
     }
 
     pub fn update(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) {
-        // Update Light Position based on Mouse Drag
-        // Convert screen coordinates to 3D world space
+        // Always update cursor light position for CSS (independent of blob)
         let x_pos = (mouse_x / screen_width - 0.5) * 20.0;
         let z_pos = (mouse_y / screen_height - 0.5) * 20.0;
-        self.light_pos_3d = vec3(x_pos, 2.0, z_pos); 
-        // Update lighting with new position
+        self.cursor_light_pos_3d = vec3(x_pos, 2.0, z_pos);
+        
+        // If dragging blob, update blob position using proper 3D unprojection
+        if self.blob_dragging && self.blob_exists {
+            // Unproject mouse position to 3D world space at blob's Y plane
+            let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
+            let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0; // Flip Y
+            
+            // Get camera matrices
+            let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+            let y = self.camera_radius * self.camera_polar.cos();
+            let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+            let cam_pos = vec3(x, y, z) + self.camera_target;
+            
+            let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+            let proj = Mat4::perspective_rh(45.0_f32.to_radians(), screen_width / screen_height, 0.1, 100.0);
+            let inv_view_proj = (proj * view).inverse();
+            
+            // Create ray from camera through mouse position
+            let near_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 0.0, 1.0);
+            let far_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 1.0, 1.0);
+            
+            let near_world = vec3(near_point.x, near_point.y, near_point.z) / near_point.w;
+            let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
+            let ray_dir = (far_world - near_world).normalize();
+            
+            // Intersect ray with plane at blob's Y position
+            let plane_y = self.blob_position.y;
+            let t = (plane_y - near_world.y) / ray_dir.y;
+            let intersection = near_world + ray_dir * t;
+            
+            // Update blob position (keep Y, update X and Z from intersection)
+            self.blob_position = vec3(intersection.x, plane_y, intersection.z);
+            
+            // Recreate blob mesh at new position
+            self.blob_mesh = Some(create_sphere_mesh(
+                &self.device,
+                &self.queue,
+                0.4, // Increased radius for better visibility
+                16,
+                self.blob_position,
+                &self.material_layout,
+            ));
+            // Update 3D scene light position to blob position if blob light is enabled
+            if self.blob_light_enabled {
+                self.light_pos_3d = self.blob_position;
+                self.update_theme_lighting();
+            }
+        } else if self.blob_exists && self.blob_light_enabled {
+            // Blob exists and light is enabled - use blob position for 3D scene light
+            self.light_pos_3d = self.blob_position;
+            self.update_theme_lighting();
+        } else {
+            // No blob or blob light is off - use cursor position for 3D scene light
+            self.light_pos_3d = self.cursor_light_pos_3d;
+            self.update_theme_lighting();
+        }
+    }
+    
+    // Spawn light blob at top of scene
+    #[wasm_bindgen(js_name = "spawnBlob")]
+    pub fn spawn_blob(&mut self) {
+        if !self.blob_exists {
+            self.blob_exists = true;
+            self.blob_position = vec3(0.0, 5.0, 0.0); // Top of scene
+            self.blob_light_enabled = true;
+            self.blob_dragging = false;
+            
+            // Create sphere mesh for blob (larger radius for better visibility)
+            self.blob_mesh = Some(create_sphere_mesh(
+                &self.device,
+                &self.queue,
+                0.4, // Increased radius for better visibility
+                16,  // segments
+                self.blob_position,
+                &self.material_layout,
+            ));
+            
+            // Set light position to blob position
+            self.light_pos_3d = self.blob_position;
+            self.update_theme_lighting();
+        }
+    }
+    
+    // Despawn light blob
+    #[wasm_bindgen(js_name = "despawnBlob")]
+    pub fn despawn_blob(&mut self) {
+        self.blob_exists = false;
+        self.blob_mesh = None;
+        self.blob_dragging = false;
+        // Reset light position to center
+        self.light_pos_3d = vec3(0.0, 2.0, 0.0);
         self.update_theme_lighting();
+    }
+    
+    // Toggle blob light on/off
+    #[wasm_bindgen(js_name = "toggleBlobLight")]
+    pub fn toggle_blob_light(&mut self) {
+        if self.blob_exists {
+            self.blob_light_enabled = !self.blob_light_enabled;
+            if self.blob_light_enabled {
+                self.light_pos_3d = self.blob_position;
+            } else {
+                // Turn off light (set to far away or zero intensity)
+                self.light_pos_3d = vec3(0.0, -100.0, 0.0);
+            }
+            self.update_theme_lighting();
+        }
+    }
+    
+    // Start dragging blob
+    #[wasm_bindgen(js_name = "startDragBlob")]
+    pub fn start_drag_blob(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) -> bool {
+        if !self.blob_exists {
+            return false;
+        }
+        
+        // Simple raycast check: project blob to screen and check if mouse is near
+        let blob_screen = self.project_3d_to_screen(self.blob_position);
+        let mouse_norm_x = mouse_x / screen_width;
+        let mouse_norm_y = mouse_y / screen_height;
+        
+        let dist = ((blob_screen[0] - mouse_norm_x).powi(2) + (blob_screen[1] - mouse_norm_y).powi(2)).sqrt();
+        
+        // Increased threshold to 0.1 (10% of screen) for easier grabbing
+        // Also check if blob is visible (not behind camera)
+        if dist < 0.1 && blob_screen[0] > 0.0 && blob_screen[0] < 1.0 && blob_screen[1] > 0.0 && blob_screen[1] < 1.0 {
+            self.blob_dragging = true;
+            return true;
+        }
+        
+        false
+    }
+    
+    // Stop dragging blob
+    #[wasm_bindgen(js_name = "stopDragBlob")]
+    pub fn stop_drag_blob(&mut self) {
+        self.blob_dragging = false;
+    }
+    
+    // Check if click hits blob (for toggling light)
+    #[wasm_bindgen(js_name = "checkBlobClick")]
+    pub fn check_blob_click(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) -> bool {
+        if !self.blob_exists {
+            return false;
+        }
+        
+        let blob_screen = self.project_3d_to_screen(self.blob_position);
+        let mouse_norm_x = mouse_x / screen_width;
+        let mouse_norm_y = mouse_y / screen_height;
+        
+        let dist = ((blob_screen[0] - mouse_norm_x).powi(2) + (blob_screen[1] - mouse_norm_y).powi(2)).sqrt();
+        
+        // Increased threshold to 0.1 (10% of screen) to match drag detection
+        // Also check if blob is visible (not behind camera)
+        if dist < 0.1 && blob_screen[0] > 0.0 && blob_screen[0] < 1.0 && blob_screen[1] > 0.0 && blob_screen[1] < 1.0 {
+            // Only toggle if not already dragging (to avoid toggling on drag start)
+            if !self.blob_dragging {
+                self.toggle_blob_light();
+            }
+            return true;
+        }
+        
+        false
+    }
+    
+    // Helper: Project 3D position to screen coordinates (0-1 range)
+    fn project_3d_to_screen(&self, world_pos: Vec3) -> [f32; 2] {
+        let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+        let y = self.camera_radius * self.camera_polar.cos();
+        let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+        let cam_pos = vec3(x, y, z) + self.camera_target;
+        
+        let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+        let proj = Mat4::perspective_rh(45.0_f32.to_radians(), self.config.width as f32 / self.config.height as f32, 0.1, 100.0);
+        let view_proj = proj * view;
+        
+        let world = vec4(world_pos.x, world_pos.y, world_pos.z, 1.0);
+        let clip = view_proj * world;
+        
+        let w = clip.w;
+        if w.abs() < 0.0001 {
+            return [0.5, 0.5];
+        }
+        
+        let ndc_x = clip.x / w;
+        let ndc_y = clip.y / w;
+        
+        let screen_x = (ndc_x + 1.0) * 0.5;
+        let screen_y = 1.0 - (ndc_y + 1.0) * 0.5;
+        
+        [screen_x, screen_y]
     }
     
     // Project 3D light position to 2D screen coordinates for CSS
@@ -908,7 +1211,13 @@ impl State {
         let audio_uniform = AudioUniform { intensity, balance: 0.0, _pad1: 0.0, _pad2: 0.0 };
         self.queue.write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(&[audio_uniform]));
         
-        // 3. Update lighting with audio-reactive intensity (subtle pulsing only, no position changes)
+        // 3. Update lighting (ensure it's updated every frame)
+        // Update based on current state (blob or cursor)
+        if self.blob_exists && self.blob_light_enabled {
+            self.light_pos_3d = self.blob_position;
+        } else {
+            self.light_pos_3d = self.cursor_light_pos_3d;
+        }
         self.update_theme_lighting();
 
         // 3. Draw
@@ -1005,6 +1314,16 @@ impl State {
                     render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
                 }
+            }
+            
+            // Draw Light Blob (if exists) - rendered as opaque sphere
+            if let Some(blob_mesh) = &self.blob_mesh {
+                render_pass.set_pipeline(&self.opaque_pipeline);
+                render_pass.set_bind_group(3, &blob_mesh.material_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, blob_mesh.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(blob_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                // Note: Blob vertices are already transformed to blob_position when mesh is created/updated
+                render_pass.draw_indexed(0..blob_mesh.num_indices, 0, 0..1);
             }
         }
 
@@ -1281,8 +1600,13 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         audio_buffer, audio_bind_group, audio_data: Vec::new(),
         camera_buffer, camera_bind_group, 
         camera_target: Vec3::ZERO, camera_radius: 10.0, camera_azimuth: 0.0, camera_polar: 1.57,
-        light_buffer, light_bind_group, light_pos_3d: Vec3::ZERO, light_pos_2d: Vec2::ZERO,
+        light_buffer, light_bind_group, light_pos_3d: Vec3::ZERO, cursor_light_pos_3d: Vec3::ZERO, light_pos_2d: Vec2::ZERO,
         is_dark_theme: true, // Default to dark theme
+        blob_exists: false,
+        blob_position: vec3(0.0, 5.0, 0.0), // Spawn at top of scene
+        blob_light_enabled: true,
+        blob_mesh: None,
+        blob_dragging: false,
         model: None, material_layout, texture_cache: HashMap::new(), tx, rx
     })
 }

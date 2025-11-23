@@ -238,10 +238,21 @@ fn fs_model(in: ModelOutput) -> @location(0) vec4<f32> {
     var F0 = vec3<f32>(0.04); 
     F0 = mix(F0, albedo, metallic);
 
-    // Dynamic Light from Uniform
-    let light_pos = light.position.xyz; // Use uniform light pos
-    let L = normalize(light_pos - in.world_pos);
+    // Dynamic Light from Uniform (Point Light with Distance Attenuation)
+    let light_pos = light.position.xyz;
+    let light_dir = light_pos - in.world_pos;
+    let light_distance = length(light_dir);
+    let L = normalize(light_dir);
     let H = normalize(V + L);
+    
+    // Point light attenuation (inverse square law with minimum distance)
+    // Use smoother attenuation for better visibility
+    let min_distance = 0.5;
+    let attenuation_distance = max(light_distance, min_distance);
+    // Inverse square law with smoother falloff
+    let attenuation = 1.0 / (1.0 + 0.1 * attenuation_distance + 0.01 * attenuation_distance * attenuation_distance);
+    // Boost intensity for better visibility
+    let intensity_multiplier = 3.0;
     
     // Lighting Calculation
     let NDF = distributionGGX(N, H, roughness);   
@@ -259,15 +270,17 @@ fn fs_model(in: ModelOutput) -> @location(0) vec4<f32> {
     let NdotL = max(dot(N, L), 0.0);
     
     // Light Color & Intensity (from Uniforms only - no audio influence)
+    // Apply distance attenuation for point light (omnidirectional)
     let lightColor = light.color.rgb;
-    let radiance = lightColor; 
+    let radiance = lightColor * attenuation * intensity_multiplier; 
         
     let Lo = (kD * albedo / PI + specular) * radiance * NdotL;
 
     // Ambient / Emission
     let ambient = light.ambient_color.rgb * albedo * occlusion;
-    // No emission - pure PBR lighting only
-    let emission = vec3<f32>(0.0); 
+    // Add emission for blob visibility (if material is highly emissive/metallic)
+    // This makes the blob glow even when not directly lit
+    let emission = albedo * metallic * 0.5; // Emissive glow based on material properties 
 
     let color = ambient + Lo + emission;
     

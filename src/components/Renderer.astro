@@ -16,7 +16,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
 <script type="module" define:vars={{ CANVAS_ID, modelPath }}>
   import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6';
-  import { theme, activeModel, onSet, isDynamicLightActive } from '../src/stores/sceneStore.ts';
+  import { theme, activeModel, onSet, isDynamicLightActive, isBlobActive } from '../src/stores/sceneStore.ts';
   import { getAudioData, getStereoData, getComprehensiveAudioAnalysis } from '../src/stores/audioStore.ts';
 
   // --- Global Scope (für Cleanup notwendig) ---
@@ -27,6 +27,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   let isVisible = true;
   let themeUnsub = null;
   let lightUnsub = null;
+  let blobUnsub = null;
   let modelUnsub = null;
   let isLoadingModel = false; // Prevent concurrent model loads
 
@@ -46,6 +47,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   let isDragging = false;
   let lastX = 0;
   let lastY = 0;
+  let isDraggingBlob = false;
 
   // --- SOTA Render Loop ---
   function renderLoop(timestamp) {
@@ -159,79 +161,45 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
                 state.updateAudioData(audioData);
 
-                // VISUAL EFFECT: Extreme Color Shift & Spatial Audio
-                // Check the store value directly for the render loop logic
+                // Update CSS light (completely independent of audio)
+                // Light position is updated in pointermove handler
                 const dynamicLightEnabled = isDynamicLightActive.get();
                 
-                // Always update CSS vars if light enabled, OR if we need to clear them
-                if (container) {
+                if (container && dynamicLightEnabled) {
                    const overlay = container.querySelector('.css-light-overlay');
                    
-                   if (dynamicLightEnabled) {
-                       // 1. Update Overlay Visuals - Theme-based, no color shifting
-                       if (overlay) {
-                            const currentTheme = theme.get();
-                            const isDark = currentTheme === 'dark';
-                            
-                            // Pulse opacity based on audio intensity
-                            const baseOpacity = isDark ? 0.15 : 0.25;
-                            const pulseAmount = intensity * (isDark ? 0.4 : 0.3);
-                            overlay.style.opacity = (baseOpacity + pulseAmount).toFixed(2);
-                            
-                            // Theme-based color temperature (no blue-red shift)
-                            // Dark theme: Cool white/blue tones
-                            // Light theme: Warm white/yellow tones
-                            let r, g, b;
-                            if (isDark) {
-                                // Cool white with slight blue tint
-                                r = 240;
-                                g = 245;
-                                b = 255;
-                            } else {
-                                // Warm white with slight yellow tint
-                                r = 255;
-                                g = 250;
-                                b = 240;
-                            }
-                            
-                            // Smooth radial gradient with theme-appropriate colors
-                            overlay.style.background = `radial-gradient(
-                                circle 1000px at var(--light-x, 50%) var(--light-y, 50%),
-                                rgba(${r}, ${g}, ${b}, ${0.4 + intensity * 0.3}) 0%,
-                                rgba(${r}, ${g}, ${b}, ${0.2 + intensity * 0.2}) 30%,
-                                rgba(0, 0, 0, 0.0) 70%
-                            )`;
-                       }
-                       
-                       // 2. Update Global CSS Vars (for all HTML elements)
-                       // Update light position from 3D to 2D projection
-                       if (state && state.getLightScreenPos) {
-                           const screenPos = state.getLightScreenPos();
-                           const screenX = screenPos[0];
-                           const screenY = screenPos[1];
-                           
-                           const xPercent = screenX * 100;
-                           const yPercent = screenY * 100;
-                           
-                           document.documentElement.style.setProperty('--light-x', `${xPercent}vw`);
-                           document.documentElement.style.setProperty('--light-y', `${yPercent}vh`);
-                       }
-                       
-                       document.documentElement.style.setProperty('--light-intensity', intensity.toFixed(2));
-                       
-                       // Add class to body for CSS selectors
-                       document.body.classList.add('light-engine-active');
-                       
-                   } else {
-                        // Disabled State
-                        if (overlay) {
-                            overlay.style.opacity = '0';
+                   if (overlay) {
+                        const currentTheme = theme.get();
+                        const isDark = currentTheme === 'dark';
+                        
+                        // Static opacity (no audio influence)
+                        const baseOpacity = isDark ? 0.15 : 0.25;
+                        overlay.style.opacity = baseOpacity.toFixed(2);
+                        
+                        // Theme-based color temperature (static, no audio)
+                        let r, g, b;
+                        if (isDark) {
+                            r = 240;
+                            g = 245;
+                            b = 255;
+                        } else {
+                            r = 255;
+                            g = 250;
+                            b = 240;
                         }
-                        // Remove class from body
-                        document.body.classList.remove('light-engine-active');
-                        // Keep positions but zero intensity for smooth transitions
-                        document.documentElement.style.setProperty('--light-intensity', '0');
+                        
+                        // Static radial gradient (position updated in pointermove)
+                        overlay.style.background = `radial-gradient(
+                            circle 1000px at var(--light-x, 50%) var(--light-y, 50%),
+                            rgba(${r}, ${g}, ${b}, ${baseOpacity}) 0%,
+                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.6}) 30%,
+                            rgba(0, 0, 0, 0.0) 70%
+                        )`;
                    }
+                   
+                   // Static intensity (no audio influence)
+                   document.documentElement.style.setProperty('--light-intensity', '1.0');
+                   document.body.classList.add('light-engine-active');
                 }
             }
         } catch (audioErr) {
@@ -271,6 +239,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       document.documentElement.style.setProperty('--light-y', '50vh');
       document.documentElement.style.setProperty('--light-intensity', '0');
       
+      // Handle cursor-directed CSS lighting ONLY (no blob interaction)
       lightUnsub = onSet(isDynamicLightActive, ({ newValue }) => {
          if (!newValue && container) {
              const overlay = container.querySelector('.css-light-overlay');
@@ -285,6 +254,22 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
              if (!document.documentElement.style.getPropertyValue('--light-x')) {
                document.documentElement.style.setProperty('--light-x', '50vw');
                document.documentElement.style.setProperty('--light-y', '50vh');
+             }
+         }
+      });
+
+      // Handle light blob spawning/despawning ONLY (separate from CSS lighting)
+      blobUnsub = onSet(isBlobActive, ({ newValue }) => {
+         if (!newValue && state) {
+             // Despawn blob
+             if (state.despawnBlob) {
+                 state.despawnBlob();
+             }
+             isDraggingBlob = false;
+         } else if (newValue && state) {
+             // Spawn blob at top of scene
+             if (state.spawnBlob) {
+                 state.spawnBlob();
              }
          }
       });
@@ -448,17 +433,69 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     });
 
     window.addEventListener('pointerup', (e) => {
+      // Clear click timeout if dragging happened
+      if (blobClickTimeout) {
+        clearTimeout(blobClickTimeout);
+        blobClickTimeout = null;
+      }
+      
+      if (isDraggingBlob && state && state.stopDragBlob) {
+        state.stopDragBlob();
+        isDraggingBlob = false;
+      }
       isDragging = false;
       container.style.cursor = 'grab';
       if (container.hasPointerCapture(e.pointerId)) {
         container.releasePointerCapture(e.pointerId);
       }
     });
+    
+    // Handle blob click and drag start
+    let blobClickTimeout = null;
+    container.addEventListener('pointerdown', (e) => {
+      if (!state) return;
+      
+      // Only handle blob interactions if blob is active
+      const blobActive = isBlobActive.get();
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Try to start dragging blob first (if near blob, allow dragging)
+      if (blobActive && state.startDragBlob && state.startDragBlob(x, y, rect.width, rect.height)) {
+        isDraggingBlob = true;
+        isDragging = false; // Don't drag camera when dragging blob
+        e.preventDefault();
+        e.stopPropagation();
+        container.setPointerCapture(e.pointerId);
+        
+        // Set a timeout to toggle light on click (if no drag movement happens)
+        blobClickTimeout = setTimeout(() => {
+          if (state.checkBlobClick) {
+            state.checkBlobClick(x, y, rect.width, rect.height);
+          }
+        }, 200); // 200ms delay to distinguish click from drag
+        return;
+      }
+      
+      // Otherwise, start camera drag
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      container.style.cursor = 'grabbing';
+    });
 
     container.addEventListener('pointermove', (e) => {
       const rect = canvas.getBoundingClientRect();
 
-      if (state && isDragging) {
+      // If dragging blob, cancel click timeout
+      if (isDraggingBlob && blobClickTimeout) {
+        clearTimeout(blobClickTimeout);
+        blobClickTimeout = null;
+      }
+
+      if (state && isDragging && !isDraggingBlob) {
         const deltaX = e.clientX - lastX;
         const deltaY = e.clientY - lastY;
         
@@ -474,12 +511,18 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // Only update dynamic light position if enabled
+        // Update blob position if dragging
+        if (isBlobActive.get() && isDraggingBlob) {
+          state.update(x, y, rect.width, rect.height);
+        }
+        
+        // Update cursor-directed CSS lighting if enabled (separate from blob)
         if (isDynamicLightActive.get()) {
-            // Update 3D light position based on mouse drag
+            // Update cursor light position (always tracks cursor for CSS)
             state.update(x, y, rect.width, rect.height);
             
-            // Project 3D light position to 2D screen space for CSS
+            // Project cursor-directed 3D light position to 2D screen space for CSS
+            // This always uses cursor position, never blob position
             if (state.getLightScreenPos) {
                 const screenPos = state.getLightScreenPos();
                 const screenX = screenPos[0]; // 0-1 range
@@ -489,7 +532,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
                 const xPercent = screenX * 100;
                 const yPercent = screenY * 100;
                 
-                // Update CSS variables for HTML elements
+                // Update CSS variables for HTML elements (no audio-directed manipulation)
                 document.documentElement.style.setProperty('--light-x', `${xPercent}vw`);
                 document.documentElement.style.setProperty('--light-y', `${yPercent}vh`);
                 
@@ -497,7 +540,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
                 container.style.setProperty('--light-x', `${screenX * window.innerWidth}px`);
                 container.style.setProperty('--light-y', `${screenY * window.innerHeight}px`);
             } else {
-                // Fallback: use mouse position directly
+                // Fallback: use mouse position directly (only if blob doesn't exist)
                 const xPercent = (e.clientX / window.innerWidth) * 100;
                 const yPercent = (e.clientY / window.innerHeight) * 100;
                 document.documentElement.style.setProperty('--light-x', `${xPercent}vw`);
