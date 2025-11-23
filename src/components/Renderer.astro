@@ -161,10 +161,12 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
                 state.updateAudioData(audioData);
 
-                // Update CSS light (completely independent of audio)
+                // Update CSS light (completely independent of audio and blob)
                 // Light position is updated in pointermove handler
+                // This should always work when dynamic light is active, regardless of blob state
                 const dynamicLightEnabled = isDynamicLightActive.get();
                 
+                // Always update CSS overlay when dynamic light is active (independent of blob)
                 if (container && dynamicLightEnabled) {
                    const overlay = container.querySelector('.css-light-overlay');
                    
@@ -172,8 +174,8 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
                         const currentTheme = theme.get();
                         const isDark = currentTheme === 'dark';
                         
-                        // Increased opacity for stronger emittance effect
-                        const baseOpacity = isDark ? 0.35 : 0.45; // Increased from 0.15/0.25
+                        // Further increased opacity for much stronger emittance effect
+                        const baseOpacity = isDark ? 0.55 : 0.65; // Significantly increased
                         overlay.style.opacity = baseOpacity.toFixed(2);
                         
                         // Theme-based color temperature (static, no audio)
@@ -188,18 +190,19 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
                             b = 240;
                         }
                         
-                        // Larger, more intense radial gradient for stronger emittance
+                        // Larger, more intense radial gradient for much stronger emittance
                         overlay.style.background = `radial-gradient(
-                            circle 1500px at var(--light-x, 50%) var(--light-y, 50%),
+                            circle 1800px at var(--light-x, 50%) var(--light-y, 50%),
                             rgba(${r}, ${g}, ${b}, ${baseOpacity}) 0%,
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.7}) 25%,
-                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.4}) 50%,
-                            rgba(0, 0, 0, 0.0) 80%
+                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.8}) 20%,
+                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.6}) 40%,
+                            rgba(${r}, ${g}, ${b}, ${baseOpacity * 0.3}) 60%,
+                            rgba(0, 0, 0, 0.0) 85%
                         )`;
                    }
                    
-                   // Increased intensity for stronger emittance
-                   document.documentElement.style.setProperty('--light-intensity', '1.5'); // Increased from 1.0
+                   // Further increased intensity for much stronger emittance
+                   document.documentElement.style.setProperty('--light-intensity', '2.0'); // Increased from 1.5
                    document.body.classList.add('light-engine-active');
                 }
             }
@@ -672,10 +675,11 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   pointer-events: none; /* clicks go through */
   opacity: var(--light-opacity, 0);
   transition: opacity 0.1s ease;
+  /* Theme-based gradient: cool white for dark theme */
   background: radial-gradient(
     circle 800px at var(--light-x, 50%) var(--light-y, 50%),
-    rgba(100, 150, 255, 0.6) 0%,
-    rgba(50, 80, 200, 0.2) 40%,
+    rgba(240, 245, 255, 0.6) 0%,
+    rgba(200, 220, 255, 0.2) 40%,
     rgba(0, 0, 0, 0.0) 70%
   );
   mix-blend-mode: screen;

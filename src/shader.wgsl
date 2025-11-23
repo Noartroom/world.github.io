@@ -80,16 +80,18 @@ fn fs_sky(in: SkyOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(base_color + beat_color * 0.2, 1.0);
 }
 
-// --- GRID RENDERER (Legacy / Optional) ---
+// --- GRID RENDERER (High-Fidelity Sound Wave Visualization) ---
 // Using same group layout: 0=Audio, 1=Camera, 2=Light
 
 struct GridVertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec3<f32>,
+    @location(0) world_pos: vec3<f32>,
+    @location(1) grid_coord: vec2<f32>,
 };
 
-const GRID_SIZE: u32 = 100u;
-const SPACING: f32 = 0.5;
+const GRID_SIZE: u32 = 200u; // Increased resolution for finer lines
+const SPACING: f32 = 0.25; // Smaller spacing for more detail
+const GRID_Y: f32 = -2.0; // Grid height
 
 @vertex
 fn vs_grid(@builtin(vertex_index) in_vertex_index: u32) -> GridVertexOutput {
@@ -110,41 +112,93 @@ fn vs_grid(@builtin(vertex_index) in_vertex_index: u32) -> GridVertexOutput {
     let y_raw = grid_y + offset.y;
     
     let center_offset = f32(GRID_SIZE) * 0.5;
-    var x = (x_raw - center_offset) * SPACING;
-    var z_grid = (y_raw - center_offset) * SPACING; 
+    let x = (x_raw - center_offset) * SPACING;
+    let z_grid = (y_raw - center_offset) * SPACING;
     
-    // Audio Deformation
+    // Store grid coordinates for fragment shader
+    out.grid_coord = vec2<f32>(x_raw, y_raw);
+    
+    // Sound wave deformation - multiple frequencies for complex wave patterns
     let dist = sqrt(x*x + z_grid*z_grid);
-    let x_norm = x / (f32(GRID_SIZE) * SPACING * 0.5);
-    let directional_weight = 1.0 + (x_norm * audio.balance);
-    let wave = sin(dist * 2.0 - audio.intensity * 10.0);
+    let time = audio.intensity * 10.0;
     
-    var y_deformation = 0.0;
-    y_deformation += wave * audio.intensity * 1.0 * directional_weight;
+    // Multiple wave frequencies for complex interference patterns
+    let wave1 = sin(dist * 3.0 - time * 2.0) * 0.3;
+    let wave2 = sin(dist * 5.0 - time * 3.0) * 0.2;
+    let wave3 = sin(dist * 7.0 + time * 1.5) * 0.15;
     
-    let world_pos = vec4<f32>(x, -2.0 + y_deformation, z_grid, 1.0);
-    out.clip_position = camera.view_proj * world_pos;
-
-    // Grid Color Logic
-    let line_width = 0.02;
-    let is_grid_x = step(1.0 - line_width, fract(x_raw));
-    let is_grid_y = step(1.0 - line_width, fract(y_raw));
-    let is_grid = max(is_grid_x, is_grid_y);
-
-    var color = vec3<f32>(0.01, 0.01, 0.02); 
+    // Radial wave pattern
+    let radial_wave = (wave1 + wave2 + wave3) * audio.intensity;
     
-    if (is_grid > 0.5) {
-        let alpha = 1.0 - clamp(dist / (f32(GRID_SIZE) * SPACING * 0.5), 0.0, 1.0);
-        color = vec3<f32>(0.0, 0.5, 1.0) * (0.2 + audio.intensity) * alpha;
-    }
+    // Directional waves (X and Z axis)
+    let x_wave = sin(x * 4.0 - time * 2.5) * 0.2 * audio.intensity;
+    let z_wave = sin(z_grid * 4.0 - time * 2.5) * 0.2 * audio.intensity;
     
-    out.color = color;
+    // Combine all wave effects
+    let y_deformation = radial_wave + x_wave + z_wave;
+    
+    let world_pos = vec3<f32>(x, GRID_Y + y_deformation, z_grid);
+    out.world_pos = world_pos;
+    out.clip_position = camera.view_proj * vec4<f32>(world_pos, 1.0);
+    
     return out;
 }
 
 @fragment
 fn fs_grid(in: GridVertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
+    // High-fidelity thin grid lines - increased visibility
+    let line_thickness = 0.015; // Slightly thicker for better visibility
+    let fade_distance = 50.0; // Increased fade distance
+    
+    // Calculate distance from center for fade
+    let dist = length(in.world_pos.xz);
+    let fade = 1.0 - smoothstep(20.0, fade_distance, dist); // Start fading later
+    
+    // Check if we're on a grid line (X or Z axis) - use smoother step for better line detection
+    let x_line = smoothstep(1.0 - line_thickness * 2.0, 1.0 - line_thickness * 0.5, fract(in.grid_coord.x));
+    let z_line = smoothstep(1.0 - line_thickness * 2.0, 1.0 - line_thickness * 0.5, fract(in.grid_coord.y));
+    let is_line = max(x_line, z_line);
+    
+    // Base grid color - more visible
+    var color = vec3<f32>(0.1, 0.1, 0.15);
+    var alpha = 0.0;
+    
+    // Always show some grid lines, even when not on exact line (for smoother appearance)
+    if (is_line > 0.1) {
+        // Sound wave visualization - lines pulse and glow with audio
+        let time = audio.intensity * 10.0;
+        let wave_dist = length(in.world_pos.xz);
+        
+        // Wave propagation effect - concentric circles
+        let wave_phase = fract(wave_dist * 0.5 - time * 0.5);
+        let wave_intensity = smoothstep(0.85, 1.0, wave_phase) * audio.intensity;
+        
+        // Line intensity based on audio and wave propagation - increased base visibility
+        let line_intensity = 0.6 + wave_intensity * 0.8 + audio.intensity * 0.5;
+        
+        // Color shifts slightly with audio intensity (cool white to cyan)
+        // More visible colors for both light and dark themes
+        let base_color = vec3<f32>(0.8, 0.9, 1.0); // Brighter cool white/cyan
+        let pulse_color = vec3<f32>(0.5, 0.95, 1.0); // Brighter cyan on pulse
+        
+        color = mix(base_color, pulse_color, wave_intensity) * line_intensity;
+        
+        // Increased alpha for better visibility - minimum 0.5, up to 1.0
+        alpha = fade * (0.5 + wave_intensity * 0.3 + audio.intensity * 0.2);
+        alpha = min(alpha, 1.0);
+        
+        // Add subtle glow effect on wave peaks
+        let glow = wave_intensity * 0.4;
+        color += vec3<f32>(0.3, 0.6, 0.9) * glow;
+        
+        // Ensure minimum visibility even without audio
+        if (audio.intensity < 0.1) {
+            alpha = max(alpha, 0.4 * fade);
+            color = base_color * 0.7;
+        }
+    }
+    
+    return vec4<f32>(color, alpha);
 }
 
 // --- MODEL RENDERER (Foreground) ---

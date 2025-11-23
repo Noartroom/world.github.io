@@ -198,11 +198,11 @@
     --shadow-blur: calc(12px + (var(--light-intensity, 0) * 20px) + (var(--light-proximity) * 15px));
     --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.4);
     
-    /* Always apply shadow, intensity controlled by CSS vars */
+    /* Always apply shadow, intensity controlled by CSS vars - Theme-based glow */
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.1),
       var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) rgba(0, 0, 0, 0.3),
-      0 0 calc(25px * var(--glow-intensity)) rgba(100, 150, 255, var(--glow-intensity));
+      0 0 calc(25px * var(--glow-intensity)) rgba(240, 245, 255, var(--glow-intensity));
   }
   #iamf-player-wrapper.dark-mode {
     background: rgba(51, 51, 51, 0.9);
@@ -235,10 +235,10 @@
     --btn-shadow-blur: calc(8px + (var(--light-intensity, 0) * 12px) + (var(--light-proximity) * 8px));
     --btn-glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.5);
     
-    /* Always apply shadow */
+    /* Always apply shadow - Theme-based glow */
     box-shadow: 
       var(--btn-shadow-offset-x) var(--btn-shadow-offset-y) var(--btn-shadow-blur) rgba(0, 0, 0, 0.3),
-      0 0 calc(15px * var(--btn-glow-intensity)) rgba(100, 150, 255, var(--btn-glow-intensity)),
+      0 0 calc(15px * var(--btn-glow-intensity)) rgba(240, 245, 255, var(--btn-glow-intensity)),
       inset 0 1px 2px rgba(255, 255, 255, 0.2);
   }
   #iamf-play-button:not(:disabled) {
@@ -265,8 +265,9 @@
     --light-proximity: var(--light-intensity, 0);
     --text-glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.4);
     
+    /* Theme-based glow: cool white for dark theme */
     text-shadow: 
-      0 0 calc(3px * var(--text-glow-intensity)) rgba(100, 150, 255, var(--text-glow-intensity)),
+      0 0 calc(3px * var(--text-glow-intensity)) rgba(240, 245, 255, var(--text-glow-intensity)),
       0 1px 2px rgba(0, 0, 0, 0.2);
   }
   #iamf-player-wrapper.dark-mode #iamf-status {

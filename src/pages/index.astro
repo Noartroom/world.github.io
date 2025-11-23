@@ -82,7 +82,8 @@ import Renderer from '@/components/Renderer.astro';
     backdrop-filter: blur(20px);
     /* Box shadow always present, intensity controlled by CSS var */
     --panel-glow: 0;
-    box-shadow: 0 0 calc(30px * var(--panel-glow)) rgba(100, 150, 255, var(--panel-glow));
+    /* Theme-based glow: cool white for dark theme */
+    box-shadow: 0 0 calc(30px * var(--panel-glow)) rgba(240, 245, 255, var(--panel-glow));
   }
   .global-toggle {
     padding: 0.5em 1em;
@@ -104,9 +105,10 @@ import Renderer from '@/components/Renderer.astro';
     --shadow-blur: calc(5px + (var(--light-intensity, 0) * 15px) + (var(--light-proximity) * 10px));
     --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.5);
     
+    /* Theme-based glow: cool white for dark theme */
     box-shadow: 
       var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) rgba(0, 0, 0, 0.4),
-      0 0 calc(20px * var(--glow-intensity)) rgba(100, 150, 255, var(--glow-intensity)),
+      0 0 calc(20px * var(--glow-intensity)) rgba(240, 245, 255, var(--glow-intensity)),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
     
     transform: translateZ(0); /* Enable 3D transforms */
@@ -114,7 +116,8 @@ import Renderer from '@/components/Renderer.astro';
   }
   
   .global-toggle:hover {
-    background: rgba(100, 108, 255, 0.9);
+    /* Theme-based hover: cool white for dark theme */
+    background: rgba(240, 245, 255, 0.15);
     transform: translateZ(5px) scale(1.05);
     --glow-intensity: calc((var(--light-intensity, 0) * var(--light-proximity) * 0.8) + 0.3);
   }
@@ -145,16 +148,18 @@ import Renderer from '@/components/Renderer.astro';
     --shadow-blur: calc(15px + (var(--light-intensity, 0) * 25px) + (var(--light-proximity) * 15px));
     --shadow-opacity: calc(0.3 + (var(--light-intensity, 0) * 0.4) + (var(--light-proximity) * 0.3));
     
-    /* Glow effect when light is close */
+    /* Glow effect when light is close - Theme-based (no audio-directed colors) */
     --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.6);
-    --glow-color: rgba(100, 150, 255, var(--glow-intensity));
+    /* Theme-based glow color: cool white for dark theme, warm white for light theme */
+    --glow-color-dark: rgba(240, 245, 255, var(--glow-intensity));
+    --glow-color-light: rgba(255, 250, 240, var(--glow-intensity));
     
     /* Use text-shadow instead of filter drop-shadow to avoid layout shifts */
     /* Base shadow always present */
     text-shadow: 
       0 0 20px rgba(0, 0, 0, 0.5),
       var(--shadow-x) var(--shadow-y) var(--shadow-blur) rgba(0, 0, 0, var(--shadow-opacity)),
-      0 0 calc(30px * var(--glow-intensity)) var(--glow-color);
+      0 0 calc(30px * var(--glow-intensity)) var(--glow-color-dark);
     
     /* Smooth transitions for visual effects only */
     transition: text-shadow 0.1s ease-out;

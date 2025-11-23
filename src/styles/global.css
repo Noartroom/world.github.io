@@ -134,8 +134,9 @@ body.light-engine-active a {
   --light-dy: calc(var(--light-y, 50vh) - 50vh);
   /* Simplified proximity: use intensity directly */
   --light-proximity: var(--light-intensity, 0);
+  /* Theme-based glow: cool white for dark theme, warm white for light theme */
   text-shadow: 
-    0 0 calc(5px * var(--light-intensity, 0) * var(--light-proximity)) rgba(100, 150, 255, calc(var(--light-intensity, 0) * var(--light-proximity) * 0.8)),
+    0 0 calc(5px * var(--light-intensity, 0) * var(--light-proximity)) rgba(240, 245, 255, calc(var(--light-intensity, 0) * var(--light-proximity) * 0.8)),
     0 1px 2px rgba(0, 0, 0, 0.5);
   transition: text-shadow 0.2s ease-out;
 }

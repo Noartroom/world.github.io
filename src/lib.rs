@@ -464,6 +464,7 @@ pub struct State {
     // Model System
     // Model System
     model: Option<Model>,
+    model_center: Vec3, // Center position of the loaded model (for gravitational attraction)
     material_layout: wgpu::BindGroupLayout,
     texture_cache: HashMap<usize, Rc<wgpu::TextureView>>,
     tx: Sender<AssetMessage>,
@@ -881,8 +882,24 @@ impl State {
                     }
                 }
                 
+                // Calculate overall model center from all meshes
+                let mut model_min = vec3(f32::MAX, f32::MAX, f32::MAX);
+                let mut model_max = vec3(f32::MIN, f32::MIN, f32::MIN);
+                
+                for mesh in opaque_meshes.iter().chain(transparent_meshes.iter()) {
+                    model_min = model_min.min(mesh.center);
+                    model_max = model_max.max(mesh.center);
+                }
+                
+                // If we have meshes, calculate center; otherwise use origin
+                if !opaque_meshes.is_empty() || !transparent_meshes.is_empty() {
+                    self.model_center = (model_min + model_max) * 0.5;
+                } else {
+                    self.model_center = Vec3::ZERO;
+                }
+                
                 self.model = Some(Model { opaque_meshes, transparent_meshes });
-                web_sys::console::log_1(&"Model loaded with textures!".into());
+                web_sys::console::log_1(&format!("Model loaded with textures! Center: {:?}", self.model_center).into());
             },
             Err(e) => {
                 web_sys::console::error_1(&format!("Failed to parse GLB: {:?}", e).into());
@@ -971,6 +988,31 @@ impl State {
         
         // Smooth interpolation towards target position (every frame, even when not dragging)
         if self.blob_exists {
+            // Apply gravitational attraction towards model when dragging and in proximity
+            if self.blob_dragging {
+                let attraction_distance = 8.0; // Distance threshold for attraction (units)
+                let attraction_strength = 0.15; // How strong the pull is (0.0-1.0)
+                let min_distance = 1.5; // Minimum distance to maintain from model center
+                
+                // Calculate distance to model center
+                let to_model = self.model_center - self.blob_target_position;
+                let distance = to_model.length();
+                
+                // Apply gravitational pull if within attraction distance
+                if distance < attraction_distance && distance > min_distance {
+                    // Normalize direction and scale by attraction strength
+                    let pull_direction = to_model.normalize();
+                    let pull_strength = (1.0 - (distance / attraction_distance)) * attraction_strength;
+                    
+                    // Apply pull to target position (smoothly pulls blob towards model)
+                    self.blob_target_position = self.blob_target_position + pull_direction * pull_strength;
+                } else if distance <= min_distance {
+                    // Push away if too close (prevents blob from going inside model)
+                    let push_direction = (self.blob_target_position - self.model_center).normalize();
+                    self.blob_target_position = self.model_center + push_direction * min_distance;
+                }
+            }
+            
             let smoothing_factor = 0.25; // Higher = faster, lower = smoother (0.1-0.5 range)
             let diff = self.blob_target_position - self.blob_position;
             self.blob_position = self.blob_position + diff * smoothing_factor;
@@ -1254,7 +1296,8 @@ impl State {
         
         // 3. Update lighting (ensure it's updated every frame)
         // Blob light is independent - always active when blob exists and enabled
-        // Cursor light is used when blob light is not active
+        // For 3D scene: prioritize blob light if active, otherwise use cursor light
+        // Note: CSS lighting uses cursor light independently (handled in JavaScript)
         if self.blob_exists && self.blob_light_enabled {
             // Update blob light position to current blob position
             self.blob_light_pos_3d = self.blob_position;
@@ -1330,11 +1373,24 @@ impl State {
             // render_pass.set_pipeline(&self.sky_pipeline);
             // render_pass.draw(0..3, 0..1);
 
-            // Draw Grid (Audio Reactive)
-            render_pass.set_pipeline(&self.grid_pipeline);
-            // Grid layout is Group 0 (Audio) & 1 (Camera).
-            // These slots are already bound correctly from the "Global Groups" section above.
-            render_pass.draw(0..(100 * 100 * 6), 0..1);
+            // Draw Grid (High-Fidelity Sound Wave Visualization) - Only when audio is active
+            // Check if audio is active (intensity > threshold)
+            let audio_intensity = if self.audio_data.is_empty() {
+                0.0
+            } else {
+                let sum: u32 = self.audio_data.iter().map(|&x| x as u32).sum();
+                let avg = sum as f32 / self.audio_data.len() as f32;
+                (avg / 255.0).min(1.0)
+            };
+            
+            // Only render grid if audio is active (intensity > 0.01 to avoid noise)
+            if audio_intensity > 0.01 {
+                render_pass.set_pipeline(&self.grid_pipeline);
+                // Grid layout is Group 0 (Audio) & 1 (Camera).
+                // These slots are already bound correctly from the "Global Groups" section above.
+                // Updated to match new GRID_SIZE: 200 * 200 * 6 vertices (200x200 quads, 6 vertices per quad)
+                render_pass.draw(0..(200 * 200 * 6), 0..1);
+            }
             
             // Draw Model Opaque
             // Draw Model Opaque
@@ -1654,6 +1710,6 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         blob_mesh: None,
         blob_dragging: false,
         blob_drag_offset: Vec3::ZERO,
-        model: None, material_layout, texture_cache: HashMap::new(), tx, rx
+        model: None, model_center: Vec3::ZERO, material_layout, texture_cache: HashMap::new(), tx, rx
     })
 }
