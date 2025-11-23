@@ -322,13 +322,14 @@ fn fs_model(in: ModelOutput) -> @location(0) vec4<f32> {
     let H = normalize(V + L);
     
     // Point light attenuation (inverse square law with minimum distance)
-    // Use smoother attenuation for better visibility
-    let min_distance = 0.5;
+    // Use smoother, wider attenuation for better visibility and wider light cone
+    let min_distance = 1.5; // Increased from 0.5 - wider light cone
     let attenuation_distance = max(light_distance, min_distance);
-    // Inverse square law with smoother falloff
-    let attenuation = 1.0 / (1.0 + 0.1 * attenuation_distance + 0.01 * attenuation_distance * attenuation_distance);
-    // Boost intensity for better visibility
-    let intensity_multiplier = 3.0;
+    // Inverse square law with much smoother falloff for wider light cone
+    // Reduced coefficients make light fall off more slowly, creating a wider area of effect
+    let attenuation = 1.0 / (1.0 + 0.05 * attenuation_distance + 0.005 * attenuation_distance * attenuation_distance);
+    // Intensity multiplier for visible light
+    let intensity_multiplier = 4.0; // Reduced from 5.0
     
     // Lighting Calculation
     let NDF = distributionGGX(N, H, roughness);   

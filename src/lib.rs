@@ -561,6 +561,8 @@ pub struct State {
     camera_radius: f32,
     camera_azimuth: f32,
     camera_polar: f32,
+    
+    model_extent: f32, // Maximum extent of the model (for orbital path sizing)
 
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
@@ -583,6 +585,7 @@ pub struct State {
     blob_path_last_y: f32, // Track last path Y to avoid unnecessary updates
     blob_dragging: bool,
     blob_drag_offset: Vec3, // Offset from blob center when drag started
+    blob_drag_depth: f32, // Stable depth for dragging (prevents jumping)
     
     // Model System
     model: Option<Model>,
@@ -842,6 +845,10 @@ impl State {
         // Reset cursor light position when disabled to prevent it from staying at last position
         if !active {
             self.cursor_light_pos_3d = vec3(0.0, 2.0, 0.0); // Reset to default position
+        } else {
+            // When enabled, initialize to a reasonable position near the model center
+            // This will be updated on next mouse move, but ensures light is visible immediately
+            self.cursor_light_pos_3d = self.model_center + vec3(2.0, 2.0, 2.0);
         }
         // Immediately recalculate the final light position based on current state
         let blob_active = self.blob_exists && self.blob_light_enabled;
@@ -870,11 +877,15 @@ impl State {
         let light_pos = self.light_pos_3d;
         
         // Increase intensity for both blob and cursor lights
-        // Base boost: 2.0x for all lights, additional 0.5x when blob is active
+        // Base boost: 2.0x for all lights
+        // Additional boost for blob: 0.5x
+        // Additional boost for cursor light: 1.1x (makes dynamic light more intense)
         let blob_active = self.blob_exists && self.blob_light_enabled;
-        let base_intensity_boost = 2.0; // Increased from 1.0 - brighter lights overall
+        let cursor_active = self.cursor_light_active;
+        let base_intensity_boost = 2.0; // Base boost for all lights
         let blob_additional_boost = if blob_active { 0.5 } else { 0.0 }; // Extra boost for blob
-        let intensity_boost = base_intensity_boost + blob_additional_boost;
+        let cursor_additional_boost = if cursor_active && !blob_active { 1.1 } else { 0.0 }; // Extra boost for cursor light when it's the only active light
+        let intensity_boost = base_intensity_boost + blob_additional_boost + cursor_additional_boost;
         
         if self.is_dark_theme {
             // Dark theme: Cool, subtle lighting (blue-white tones)
@@ -884,9 +895,9 @@ impl State {
             let light_uniform = LightUniform {
                 position: [light_pos.x, light_pos.y, light_pos.z, 1.0],
                 color: [
-                    (base_color[0] * intensity_boost).min(1.0f32),
-                    (base_color[1] * intensity_boost).min(1.0f32),
-                    (base_color[2] * intensity_boost).min(1.0f32),
+                    (base_color[0] * intensity_boost).min(3.0f32), // Allow values > 1.0 for HDR-like effect
+                    (base_color[1] * intensity_boost).min(3.0f32),
+                    (base_color[2] * intensity_boost).min(3.0f32),
                     1.0
                 ],
                 ambient_color: [0.02, 0.02, 0.03, 1.0] // Static ambient (no audio pulse)
@@ -1109,20 +1120,25 @@ impl State {
                     }
                 }
                 
-                // Calculate overall model center from all meshes
+                // Calculate overall model center and extent from all meshes
                 let mut model_min = vec3(f32::MAX, f32::MAX, f32::MAX);
                 let mut model_max = vec3(f32::MIN, f32::MIN, f32::MIN);
                 
+                // Use AABB from meshes for accurate extent calculation
                 for mesh in opaque_meshes.iter().chain(transparent_meshes.iter()) {
-                    model_min = model_min.min(mesh.center);
-                    model_max = model_max.max(mesh.center);
+                    model_min = model_min.min(mesh.aabb_min);
+                    model_max = model_max.max(mesh.aabb_max);
                 }
                 
-                // If we have meshes, calculate center; otherwise use origin
+                // If we have meshes, calculate center and extent; otherwise use defaults
                 if !opaque_meshes.is_empty() || !transparent_meshes.is_empty() {
                     self.model_center = (model_min + model_max) * 0.5;
+                    // Calculate maximum extent (largest dimension)
+                    let extent = model_max - model_min;
+                    self.model_extent = extent.x.max(extent.y.max(extent.z));
                 } else {
                     self.model_center = Vec3::ZERO;
+                    self.model_extent = 2.0; // Default extent
                 }
                 
                 self.model = Some(Model { opaque_meshes, transparent_meshes });
@@ -1176,16 +1192,9 @@ impl State {
 
     pub fn update(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) {
         // Update cursor light position for 3D scene (only if cursor light is active)
+        // Unproject mouse position to 3D space to place light at exact mouse position
         if self.cursor_light_active {
-            let x_pos = (mouse_x / screen_width - 0.5) * 20.0;
-            let z_pos = (mouse_y / screen_height - 0.5) * 20.0;
-            self.cursor_light_pos_3d = vec3(x_pos, 2.0, z_pos);
-        }
-        
-        // If dragging blob, update blob target position using improved 3D ray-sphere intersection
-        // This provides more intuitive dragging that follows the mouse naturally in 3D space
-        if self.blob_dragging && self.blob_exists {
-            // Unproject mouse position to 3D world space
+            // Convert mouse to normalized device coordinates (-1 to 1)
             let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
             let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0; // Flip Y
             
@@ -1200,80 +1209,97 @@ impl State {
             let inv_view_proj = (proj * view).inverse();
             
             // Create ray from camera through mouse position
+            // Unproject near and far points to create a ray
             let near_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 0.0, 1.0);
             let far_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 1.0, 1.0);
             
             let near_world = vec3(near_point.x, near_point.y, near_point.z) / near_point.w;
             let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
             let ray_dir = (far_world - near_world).normalize();
-            let ray_origin = near_world;
             
-            // Intersect ray with sphere centered at model center
-            // This provides more natural 3D dragging that follows mouse movement
-            let sphere_center = self.model_center;
-            let to_model = self.blob_target_position - sphere_center;
-            let current_radius = to_model.length().max(2.0).min(8.0); // Use current blob distance as sphere radius
+            // Place light at a fixed distance along the ray from the camera
+            // Closer distance creates a wider light cone effect (light spreads more)
+            // This makes the dynamic light illuminate a wider area
+            let light_distance = 3.0; // Reduced from 5.0 - closer light = wider cone effect
+            let light_pos = near_world + ray_dir * light_distance;
             
-            let oc = ray_origin - sphere_center;
-            let a = ray_dir.dot(ray_dir);
-            let b = 2.0 * oc.dot(ray_dir);
-            let c = oc.dot(oc) - current_radius * current_radius;
-            let discriminant = b * b - 4.0 * a * c;
+            // Place light at this 3D position
+            self.cursor_light_pos_3d = light_pos;
+        }
+        
+        // If dragging blob, use screen-space dragging that follows mouse naturally
+        // This provides intuitive dragging that works on both mobile and desktop
+        if self.blob_dragging && self.blob_exists {
+            // Unproject mouse position to 3D world space
+            let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
+            let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0; // Flip Y
             
-            if discriminant >= 0.0 {
-                let sqrt_disc = discriminant.sqrt();
-                let t1 = (-b - sqrt_disc) / (2.0 * a);
-                let t2 = (-b + sqrt_disc) / (2.0 * a);
-                
-                // Use the closer intersection point (positive t)
-                let t = if t1 > 0.0 { t1 } else if t2 > 0.0 { t2 } else { return; };
-                
-                let intersection = ray_origin + ray_dir * t;
-                
-                // Update target position - will be constrained to orbital path in update() function
-                self.blob_target_position = intersection;
-            }
+            // Get camera position and matrices
+            let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+            let y = self.camera_radius * self.camera_polar.cos();
+            let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+            let cam_pos = vec3(x, y, z) + self.camera_target;
+            
+            let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+            let proj = Mat4::perspective_rh(45.0_f32.to_radians(), screen_width / screen_height, 0.1, 100.0);
+            let inv_view_proj = (proj * view).inverse();
+            
+            // Use stable depth from when dragging started to prevent jumping
+            // If depth is 0.0 (not initialized), calculate it from current blob position
+            let depth = if self.blob_drag_depth > 0.0 {
+                self.blob_drag_depth
+                } else {
+                // Calculate depth from current blob position (project to NDC)
+                let blob_clip = proj * view * vec4(self.blob_position.x, self.blob_position.y, self.blob_position.z, 1.0);
+                let blob_ndc_z = blob_clip.z / blob_clip.w;
+                blob_ndc_z.clamp(0.0, 1.0)
+            };
+            
+            // Unproject mouse position to 3D world space at the stable depth
+            // This creates a plane at the blob's depth that the mouse moves on
+            let mouse_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, depth, 1.0);
+            let mouse_world = vec3(mouse_point.x, mouse_point.y, mouse_point.z) / mouse_point.w;
+            
+            // Only apply soft constraints to prevent going through the model
+            // Don't force it onto a circular path - allow straight-line movement
+            let to_model = mouse_world - self.model_center;
+            let base_radius = (self.model_extent * 0.5).max(3.0);
+            let min_radius = base_radius * 0.5; // Allow closer for more freedom
+            let distance = to_model.length();
+            
+            // Only constrain if too close to model center (prevent going through model)
+            // Don't constrain maximum distance - allow free movement
+            let final_position = if distance < min_radius {
+                // If too close, push it out to minimum radius
+                if distance > 0.001 {
+                    let direction = to_model / distance;
+                    self.model_center + direction * min_radius
+                } else {
+                    // If at center, place at default position
+                    self.model_center + vec3(min_radius, 0.0, 0.0)
+                }
+            } else {
+                // Free movement - follow mouse directly
+                mouse_world
+            };
+            
+            // Update target position directly - will be applied with minimal smoothing during drag
+            self.blob_target_position = final_position;
         }
         
         // Smooth interpolation towards target position (every frame, even when not dragging)
         if self.blob_exists {
-            // Lock dragging to a 2D plane at fixed distance from model center
-            // This allows full orbital movement around the model
-            if self.blob_dragging {
-                // Calculate current horizontal distance from model center
-                let to_model = self.blob_target_position - self.model_center;
-                let horizontal_dist = (to_model.x * to_model.x + to_model.z * to_model.z).sqrt();
-                
-                // Maintain fixed distance from model (auto-adjust based on current Y position)
-                // Higher Y = further from model center horizontally
-                let target_radius = 3.0 + (self.blob_target_position.y - self.model_center.y) * 0.3;
-                let min_radius = 2.0;
-                let max_radius = 8.0;
-                let clamped_radius = target_radius.clamp(min_radius, max_radius);
-                
-                // Project blob position onto circle at fixed radius from model center
-                // This ensures full orbital movement without going through center
-                if horizontal_dist > 0.001 {
-                    // Normalize the horizontal direction and scale to target radius
-                    let dir_x = to_model.x / horizontal_dist;
-                    let dir_z = to_model.z / horizontal_dist;
-                    self.blob_target_position.x = self.model_center.x + dir_x * clamped_radius;
-                    self.blob_target_position.z = self.model_center.z + dir_z * clamped_radius;
-                } else {
-                    // If directly above/below model, place at default position
-                    self.blob_target_position.x = self.model_center.x + clamped_radius;
-                    self.blob_target_position.z = self.model_center.z;
-                }
-            }
             
             // Update orbital path visualization (ring at current Y height)
             // Only show path while dragging
             if self.blob_dragging {
                 // Use target position for smoother, more stable path (avoids jitter from interpolation)
+                // Ensure path radius is large enough to fit around the model
+                let base_radius = (self.model_extent * 0.5).max(3.0); // At least half the model extent
                 let path_radius = {
                     let to_model = self.blob_target_position - self.model_center;
                     let horizontal_dist = (to_model.x * to_model.x + to_model.z * to_model.z).sqrt();
-                    horizontal_dist.max(2.0).min(8.0) // Clamp to valid range
+                    horizontal_dist.max(base_radius).min(base_radius * 2.5) // Clamp to valid range based on model size
                 };
                 
                 // Position path at fixed Y below title text (title is at ~15% from top of screen)
@@ -1305,7 +1331,12 @@ impl State {
                 self.blob_orbital_path_mesh = None;
             }
             
-            let smoothing_factor = 0.25; // Higher = faster, lower = smoother (0.1-0.5 range)
+            // Use adaptive smoothing: much faster when dragging for immediate response, slower when not dragging
+            let smoothing_factor = if self.blob_dragging { 
+                0.8  // Much faster when dragging - almost direct following for responsiveness
+            } else { 
+                0.15 // Slower when not dragging - smooth, natural movement
+            };
             let diff = self.blob_target_position - self.blob_position;
             self.blob_position = self.blob_position + diff * smoothing_factor;
             
@@ -1356,7 +1387,9 @@ impl State {
             
             // Auto-position blob at good distance from model center
             // Place it slightly above and to the side of the model
-            let spawn_distance = 4.0; // Good default distance
+            // Use model extent to ensure blob spawns outside the model
+            let base_radius = (self.model_extent * 0.5).max(3.0);
+            let spawn_distance = base_radius * 1.2; // 20% beyond base radius to ensure it's outside
             let spawn_height = self.model_center.y + 2.0; // Slightly above model center
             let spawn_position = vec3(
                 self.model_center.x + spawn_distance,
@@ -1385,7 +1418,7 @@ impl State {
             let spawn_radius = {
                 let to_model = spawn_position - self.model_center;
                 let horizontal_dist = (to_model.x * to_model.x + to_model.z * to_model.z).sqrt();
-                horizontal_dist.max(2.0).min(8.0)
+                horizontal_dist.max(base_radius).min(base_radius * 2.5)
             };
             self.blob_path_last_radius = spawn_radius;
             self.blob_path_last_y = -2.5; // Fixed Y position below model (will be used when dragging starts)
@@ -1468,6 +1501,19 @@ impl State {
             // Initialize target position to current position to prevent jumping
             self.blob_target_position = self.blob_position;
             self.blob_drag_offset = Vec3::ZERO;
+            
+            // Calculate and store stable depth from current blob position
+            // This prevents jumping when dragging starts
+            let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+            let y = self.camera_radius * self.camera_polar.cos();
+            let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+            let cam_pos = vec3(x, y, z) + self.camera_target;
+            let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+            let proj = Mat4::perspective_rh(45.0_f32.to_radians(), screen_width / screen_height, 0.1, 100.0);
+            let blob_clip = proj * view * vec4(self.blob_position.x, self.blob_position.y, self.blob_position.z, 1.0);
+            let blob_ndc_z = blob_clip.z / blob_clip.w;
+            self.blob_drag_depth = blob_ndc_z.clamp(0.0, 1.0);
+            
             return true;
         }
         
@@ -1478,6 +1524,7 @@ impl State {
     #[wasm_bindgen(js_name = "stopDragBlob")]
     pub fn stop_drag_blob(&mut self) {
         self.blob_dragging = false;
+        self.blob_drag_depth = 0.0; // Reset depth
     }
     
     // Check if click hits blob (for toggling light)
@@ -1786,7 +1833,9 @@ impl State {
                 }
             }
             
-            // Draw Orbital Path (if blob exists) - rendered as line ring
+            // Draw Orbital Path (only while dragging) - rendered as line ring
+            // Only show path when actively dragging to prevent it from staying visible
+            if self.blob_dragging {
             if let Some(path_mesh) = &self.blob_orbital_path_mesh {
                 // Frustum culling: skip if path is outside camera view
                 if self.is_aabb_in_frustum(path_mesh.aabb_min, path_mesh.aabb_max) {
@@ -1795,6 +1844,7 @@ impl State {
                     render_pass.set_vertex_buffer(0, path_mesh.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(path_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     render_pass.draw_indexed(0..path_mesh.num_indices, 0, 0..1);
+                    }
                 }
             }
             
@@ -1802,12 +1852,12 @@ impl State {
             // Note: No frustum culling for blob - it should always be visible when it exists
             // to prevent it from disappearing during orbital movement
             if let Some(blob_mesh) = &self.blob_mesh {
-                render_pass.set_pipeline(&self.opaque_pipeline);
-                render_pass.set_bind_group(3, &blob_mesh.material_bind_group, &[]);
-                render_pass.set_vertex_buffer(0, blob_mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(blob_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                // Note: Blob vertices are already transformed to blob_position when mesh is created/updated
-                render_pass.draw_indexed(0..blob_mesh.num_indices, 0, 0..1);
+                    render_pass.set_pipeline(&self.opaque_pipeline);
+                    render_pass.set_bind_group(3, &blob_mesh.material_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, blob_mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(blob_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    // Note: Blob vertices are already transformed to blob_position when mesh is created/updated
+                    render_pass.draw_indexed(0..blob_mesh.num_indices, 0, 0..1);
             }
         }
 
@@ -2103,6 +2153,7 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         blob_path_last_y: 0.0,
         blob_dragging: false,
         blob_drag_offset: Vec3::ZERO,
-        model: None, model_center: Vec3::ZERO, material_layout, texture_cache: HashMap::new(), tx, rx
+        blob_drag_depth: 0.0,
+        model: None, model_center: Vec3::ZERO, model_extent: 2.0, material_layout, texture_cache: HashMap::new(), tx, rx
     })
 }
