@@ -4,9 +4,20 @@ const CANVAS_ID = "webgpu-canvas";  // modernart1-sculpt-1, IMAGE3D-1, dezimiert
 const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 ---
 
-<div class="renderer-container" aria-label="Interactive 3D Model Viewer" role="application">
-  <div id="loader" class="loader">INITIALIZING GPU...</div>
-  <div id="debug-overlay" style="position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.7); padding: 10px; pointer-events: none; font-family: monospace; z-index: 9999;">
+<div 
+  class="renderer-container" 
+  id="renderer-container-id"
+  data-canvas-id={CANVAS_ID}
+  data-model-path={modelPath}
+  aria-label="Interactive 3D Model Viewer" 
+  role="application">
+  <div 
+    id="loader" 
+    class="loader"
+  >INITIALIZING GPU...</div>
+  <div 
+    id="debug-overlay" 
+    style="position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.7); padding: 10px; pointer-events: none; font-family: monospace; z-index: 9999;">
       Waiting for audio data...
   </div>
   
@@ -14,21 +25,25 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   <div class="css-light-overlay"></div>
 </div>
 
-<script type="module" define:vars={{ CANVAS_ID, modelPath }}>
+<script>
   import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6';
-  import { theme, activeModel, onSet, isDynamicLightActive, isBlobActive } from '../src/stores/sceneStore.ts';
-  import { getAudioData, getStereoData, getComprehensiveAudioAnalysis } from '../src/stores/audioStore.ts';
+  import { theme, activeModel, onSet, isDynamicLightActive, isBlobActive } from '../lib/stores/sceneStore';
+  import { getAudioData, getStereoData, getComprehensiveAudioAnalysis } from '../lib/stores/audioStore';
 
+    // DOM Elemente
+  const container = document.getElementById('renderer-container-id');
+  const CANVAS_ID = container?.dataset.canvasId;
+  const modelPath = container?.dataset.modelPath;
   // --- Global Scope (für Cleanup notwendig) ---
-  let state = null;
-  let rafId = null;
-  let resizeObserver = null;
-  let intersectionObserver = null;
+  let state: any = null;
+  let rafId: number | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let intersectionObserver: IntersectionObserver | null = null;
   let isVisible = true;
-  let themeUnsub = null;
-  let lightUnsub = null;
-  let blobUnsub = null;
-  let modelUnsub = null;
+  let themeUnsub: (() => void) | null = null;
+  let lightUnsub: (() => void) | null = null;
+  let blobUnsub: (() => void) | null = null;
+  let modelUnsub: (() => void) | null = null;
   let isLoadingModel = false; // Prevent concurrent model loads
 
   // Performance Monitoring (SOTA Guardrails)
@@ -40,7 +55,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
   // DOM Elemente
   const canvas = document.getElementById(CANVAS_ID);
-  const container = document.querySelector('.renderer-container');
   const loader = document.getElementById('loader');
 
   // Input State

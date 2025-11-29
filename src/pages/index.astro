@@ -20,7 +20,7 @@ import Renderer from '@/components/Renderer.astro';
 </Layout>
 <script>
   // This script controls the global buttons
-  import { theme, activeModel, isDynamicLightActive, isBlobActive } from '../stores/sceneStore';
+  import { theme, activeModel, isDynamicLightActive, isBlobActive } from '../lib/stores/sceneStore';
 
   const themeButton = document.getElementById('themeToggle');
   themeButton?.addEventListener('click', () => {

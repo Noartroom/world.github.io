@@ -40,10 +40,10 @@
   <div id="fineprint"></div>
 </div>
 
-<script type="module">
+<script>
   // Importiere den Store (als .js)
-  import { theme, onSet } from '../src/stores/sceneStore.ts';
-  import { connectAudioElement, resumeAudioContext } from '../src/stores/audioStore.ts';
+  import { theme, onSet } from '../lib/stores/sceneStore';
+  import { connectAudioElement, resumeAudioContext } from '../lib/stores/audioStore';
   
   let isPlaying = false;
   

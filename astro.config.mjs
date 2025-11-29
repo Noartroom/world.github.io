@@ -1,15 +1,17 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-
-import react from '@astrojs/react';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [
-    react({
-      // This is the critical line from the documentation you sent.
-      // It tells Astro to treat all .tsx files as React components.
-      include: ['**/*.tsx'],
-    }),
-  ]
+  vite: {
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, './src'),
+      },
+    },
+  },
 });

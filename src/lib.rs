@@ -1700,10 +1700,16 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
 
     let instance = wgpu::Instance::default();
     
-    // For wgpu 0.20 on web, use SurfaceTarget::Canvas directly
-    // This is the correct and supported API for HtmlCanvasElement
-    // Note: HtmlCanvasElement::clone() is cheap (just a reference clone)
-    let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
+    // For wgpu 0.20 on web, we must use SurfaceTarget::Canvas.
+    // We use cfg gates to ensure this compiles on both WASM (where Canvas variant exists)
+    // and Host (where it doesn't, preventing IDE errors).
+    #[cfg(target_arch = "wasm32")]
+    let target = wgpu::SurfaceTarget::Canvas(canvas.clone());
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    let target: wgpu::SurfaceTarget = unimplemented!("Not supported on non-WASM targets");
+
+    let surface = instance.create_surface(target)
         .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {}", e)))?;
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: Some(&surface), force_fallback_adapter: false }).await.ok_or_else(|| JsValue::from_str("No adapter"))?;
     
