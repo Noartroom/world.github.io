@@ -48,16 +48,17 @@
   let isPlaying = false;
   
   // Echte UI
+  // Echte UI
   const wrapper = document.getElementById('iamf-player-wrapper');
-  const playButton = document.getElementById('iamf-play-button');
+  const playButtonEl = document.getElementById('iamf-play-button');
+  const playButton = playButtonEl instanceof HTMLButtonElement ? playButtonEl : null;
   const statusText = document.getElementById('iamf-status');
-
   // Dummy UI
-  let dummyPlayButton = null;
-  let dummyDemoFileDropdown = null;
+  let dummyPlayButton: HTMLButtonElement | null = null;
+  let dummyDemoFileDropdown: HTMLSelectElement | null = null;
 
   // --- 1. Skript-Ladefunktion (unverändert) ---
-  function loadScript(src) {
+  function loadScript(src: string) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) {
         resolve(true);
@@ -88,8 +89,11 @@
   // --- 3. (VEREINFACHT) Warten, bis Worker bereit sind ---
   function pollForWorkersReady() {
     // Finde die Dummy-Elemente
-    dummyPlayButton = document.getElementById('playPauseButton');
-    dummyDemoFileDropdown = document.getElementById('demoFile');
+    const btn = document.getElementById('playPauseButton');
+    const dropdown = document.getElementById('demoFile');
+    
+    dummyPlayButton = btn instanceof HTMLButtonElement ? btn : null;
+    dummyDemoFileDropdown = dropdown instanceof HTMLSelectElement ? dropdown : null;
 
     if (!dummyPlayButton || !dummyDemoFileDropdown) {
       // app_bundle.js hat die Elemente noch nicht gefunden
@@ -143,9 +147,9 @@
       const binauralEl = document.getElementById('binauralPlayback');
       const videoEl = document.getElementById('videoPlayback');
       
-      if (stereoEl) connectAudioElement(stereoEl);
-      if (binauralEl) connectAudioElement(binauralEl);
-      if (videoEl) connectAudioElement(videoEl);
+      if (stereoEl instanceof HTMLMediaElement) connectAudioElement(stereoEl);
+      if (binauralEl instanceof HTMLMediaElement) connectAudioElement(binauralEl);
+      if (videoEl instanceof HTMLMediaElement) connectAudioElement(videoEl);
 
       dummyPlayButton.click();
       isPlaying = !isPlaying;
