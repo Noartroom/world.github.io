@@ -374,6 +374,10 @@ import Renderer from '@/components/Renderer.astro';
     /* Removed background box for cleaner wireframe integration */
   }
 
+  :global(.light-mode) .back-content {
+    color: #333;
+  }
+
   .cube-container {
     width: 80vmin;
     height: 80vmin;
@@ -408,6 +412,12 @@ import Renderer from '@/components/Renderer.astro';
     color: rgba(100, 200, 255, 0.2);
     box-shadow: 0 0 10px rgba(100, 200, 255, 0.2), inset 0 0 20px rgba(100, 200, 255, 0.1); /* Glow */
     backface-visibility: visible;
+  }
+
+  :global(.light-mode) .face {
+    border-color: rgba(0, 80, 160, 0.6);
+    color: rgba(0, 50, 100, 0.8);
+    box-shadow: 0 0 10px rgba(0, 80, 160, 0.1), inset 0 0 20px rgba(0, 80, 160, 0.05);
   }
 
   .front  { transform: rotateY(0deg) translateZ(40vmin); }

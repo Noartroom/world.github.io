@@ -287,17 +287,18 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       // 0.0 = midnight, 0.5 = noon, 1.0 = midnight next day
       const time = currentHour / 24.0;
       
-      // SOTA Palette: Subtle White/Neutral Tones with minimal variance
-      const moonlight = { r: 0.85, g: 0.9, b: 1.0 }; // Cool Pale Blue-White
-      const moonlight_bright = { r: 0.95, g: 0.98, b: 1.0 }; // Peak Night Brightness (4am)
-      const dawn = { r: 1.0, g: 0.9, b: 0.8 };       // Warm White (Sunrise)
-      const noon = { r: 1.0, g: 1.0, b: 0.95 };      // Pure Bright White
-      const dusk = { r: 1.0, g: 0.85, b: 0.75 };     // Soft Warm White (Sunset)
+      // SOTA Palette: Strict White/Yellow/Orange as requested
+      const moonlight = { r: 0.9, g: 0.95, b: 1.0 };     // White Moonlight (Night) - Clean White
+      const moonlight_bright = { r: 1.0, g: 1.0, b: 1.0 }; // Pure White
+      const dawn = { r: 1.0, g: 0.6, b: 0.2 };           // Touch of Orange (Sunrise)
+      const noon = { r: 1.0, g: 0.95, b: 0.6 };          // Yellow Light (Day)
+      const dusk = { r: 1.0, g: 0.5, b: 0.1 };           // Touch of Orange (Sunset)
       
-      // Sky Background Colors (Ambient) - Much more desaturated
-      const sky_night = { r: 0.05, g: 0.05, b: 0.1 };
-      const sky_day = { r: 0.6, g: 0.7, b: 0.8 };
-      const sky_dawn = { r: 0.3, g: 0.3, b: 0.4 };
+      // Sky Background Colors (Ambient) - Neutralized to avoid purple/magenta
+      // Strictly following the palette for ambient as well, but darker
+      const sky_night = { r: 0.05, g: 0.05, b: 0.08 };   // Deep Neutral Blue-Black (No Purple)
+      const sky_day = { r: 0.5, g: 0.7, b: 0.9 };        // Clear Sky Blue
+      const sky_dawn = { r: 0.2, g: 0.15, b: 0.1 };      // Dark Warm Tone
 
       let light = { r: 0, g: 0, b: 0 };
       let sky = { r: 0, g: 0, b: 0 };
