@@ -587,14 +587,16 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       }
     });
 
-    container.addEventListener('pointermove', (e: PointerEvent) => {
-      if (!state || !canvas) return;
-
-      // SOTA: Update CSS light position on every move for responsive feel
+    // SOTA: Update CSS light position globally on window to ensure it works over UI elements
+    window.addEventListener('pointermove', (e: PointerEvent) => {
       if (isDynamicLightActive.get()) {
         document.documentElement.style.setProperty('--light-x', `${e.clientX}px`);
         document.documentElement.style.setProperty('--light-y', `${e.clientY}px`);
       }
+    });
+
+    container.addEventListener('pointermove', (e: PointerEvent) => {
+      if (!state || !canvas) return;
 
       const now = performance.now();
       if (!cachedCanvasRect || (now - lastCachedRectTime) > RECT_CACHE_DURATION) {

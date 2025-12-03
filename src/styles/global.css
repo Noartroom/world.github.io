@@ -93,7 +93,7 @@ body.light-engine-active::before {
   
   /* Default: Dark theme colors (cool white) */
   background: radial-gradient(
-    circle 800px at var(--light-x, 50vw) var(--light-y, 50vh),
+    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
     rgba(240, 245, 255, calc(0.15 * var(--light-intensity, 0))) 0%,
     rgba(200, 220, 255, calc(0.10 * var(--light-intensity, 0))) 30%,
     rgba(0, 0, 0, 0) 70%
@@ -106,7 +106,7 @@ body.light-engine-active::before {
 /* Light theme: Warm white tones */
 body.light-mode.light-engine-active::before {
   background: radial-gradient(
-    circle 800px at var(--light-x, 50vw) var(--light-y, 50vh),
+    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
     rgba(255, 250, 240, calc(0.20 * var(--light-intensity, 0))) 0%,
     rgba(255, 240, 220, calc(0.12 * var(--light-intensity, 0))) 30%,
     rgba(0, 0, 0, 0) 70%
@@ -163,14 +163,17 @@ body.layer-back-active #layer-back {
   transform: scale(1) !important;
   z-index: 5 !important; /* Move above everything else (except persistent UI) */
   
+  /* Optimize mask performance */
+  will-change: mask-image, -webkit-mask-image;
+  
   /* The Torch Mask: Fully visible (black) at mouse, 20% visible elsewhere */
   -webkit-mask-image: radial-gradient(
-    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
+    circle 200px at var(--light-x, 50vw) var(--light-y, 50vh),
     black 0%,
     rgba(0, 0, 0, 0.2) 70%
   );
   mask-image: radial-gradient(
-    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
+    circle 200px at var(--light-x, 50vw) var(--light-y, 50vh),
     black 0%,
     rgba(0, 0, 0, 0.2) 70%
   );
@@ -179,6 +182,14 @@ body.layer-back-active #layer-back {
 /* Allow interaction with actual content in Back Layer */
 body.layer-back-active #layer-back .back-content {
   pointer-events: auto !important;
+  cursor: default; /* Prevent flickering to text cursor */
+  transform: translateY(-38vh); /* Move text to top to avoid blocking interaction */
+}
+
+/* Smooth transition for text position matches wireframe animation */
+.back-content {
+  transform: translateY(0);
+  transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* When Back Layer is active, hide the Front Layer (Audio Player, etc.) */
@@ -191,20 +202,36 @@ body.layer-back-active #layer-front {
 
 
 /* Back Layer Content Toggling */
-.description-short {
+.description-foreground {
   display: none;
   font-size: 1.5rem;
   font-weight: bold;
 }
 
-body.layer-back-active #layer-back .description-long {
+/* Enable View Transitions for text morphing */
+.description-background, .description-foreground {
+  view-transition-name: hero-text;
+}
+
+body.layer-back-active #layer-back .description-background {
   display: none;
 }
 
-body.layer-back-active #layer-back .description-short {
+body.layer-back-active #layer-back .description-foreground {
   display: block;
 }
 
+/* Cube "Zoom Out" Animation */
 body.layer-back-active #layer-back .cube-container {
-  display: none !important;
+  display: block !important;
+  transform: translate(-50%, -50%) scale(3);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 1s ease-in;
+}
+
+#layer-back .cube-container {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 1s ease-out;
 }
