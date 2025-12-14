@@ -1,6 +1,5 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import IamfPlayer from '@/components/IamfPlayer.astro';
 import Renderer from '@/components/Renderer.astro';
 ---
 <Layout title="Astro Prototype">
@@ -17,7 +16,6 @@ import Renderer from '@/components/Renderer.astro';
 
         <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme">Toggle Theme</button>
         <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model">Switch Model</button>
-        <button id="light-engine-toggle" class="global-toggle" aria-label="Toggle Dynamic Cursor Light">Toggle Dynamic Light</button>
         <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect">Toggle Light Blob</button>
         
         <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24">
@@ -56,14 +54,13 @@ import Renderer from '@/components/Renderer.astro';
     <div id="layer-front" class="layer">
       <h1 id="page-title" class="floating-title"></h1> <!-- test -->
       
-      <IamfPlayer />
     </div>
   </main>
 </Layout>
 
 <script>
   // This script controls the global buttons
-  import { theme, activeModel, isDynamicLightActive, isBlobActive, activeLayer } from '../lib/stores/sceneStore';
+  import { theme, activeModel, isBlobActive, activeLayer } from '../lib/stores/sceneStore';
   import { timeStore, changeTime } from '../lib/stores/timeStore';
 
   const themeButton = document.getElementById('themeToggle');
@@ -94,11 +91,6 @@ import Renderer from '@/components/Renderer.astro';
     if (current !== newModel) {
       activeModel.set(newModel);
     }
-  });
-
-  const lightButton = document.getElementById('light-engine-toggle');
-  lightButton?.addEventListener('click', () => {
-    isDynamicLightActive.set(!isDynamicLightActive.get());
   });
 
   const blobButton = document.getElementById('blob-toggle');
@@ -359,18 +351,8 @@ import Renderer from '@/components/Renderer.astro';
     cursor: pointer;
     font-size: 0.9rem;
     
-    /* Dynamic lighting effects */
-    --light-dx: calc(var(--light-x, 50vw) - 50vw);
-    --light-dy: calc(var(--light-y, 50vh) - 50vh);
-    --light-proximity: var(--light-intensity, 0);
-    --shadow-offset-x: calc(var(--light-dx) * -0.05);
-    --shadow-offset-y: calc(var(--light-dy) * -0.05);
-    --shadow-blur: calc(5px + (var(--light-intensity, 0) * 15px) + (var(--light-proximity) * 10px));
-    --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.5);
-    
+    /* Dynamic lighting effects removed */
     box-shadow: 
-      var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) rgba(0, 0, 0, 0.4),
-      0 0 calc(20px * var(--glow-intensity)) rgba(240, 245, 255, var(--glow-intensity)),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
       
     transform: translateZ(0);
@@ -437,20 +419,8 @@ import Renderer from '@/components/Renderer.astro';
     text-transform: uppercase;
     letter-spacing: 0.5rem;
     
-    --light-dx: calc(var(--light-x, 50vw) - 50vw);
-    --light-dy: calc(var(--light-y, 50vh) - 50vh);
-    --light-proximity: var(--light-intensity, 0);
-    --shadow-x: calc(var(--light-dx) * -0.15);
-    --shadow-y: calc(var(--light-dy) * -0.15);
-    --shadow-blur: calc(15px + (var(--light-intensity, 0) * 25px) + (var(--light-proximity) * 15px));
-    --shadow-opacity: calc(0.3 + (var(--light-intensity, 0) * 0.4) + (var(--light-proximity) * 0.3));
-    --glow-intensity: calc(var(--light-intensity, 0) * var(--light-proximity) * 0.6);
-    --glow-color-dark: rgba(240, 245, 255, var(--glow-intensity));
-    
     text-shadow: 
-      0 0 20px rgba(0, 0, 0, 0.5),
-      var(--shadow-x) var(--shadow-y) var(--shadow-blur) rgba(0, 0, 0, var(--shadow-opacity)),
-      0 0 calc(30px * var(--glow-intensity)) var(--glow-color-dark);
+      0 0 20px rgba(0, 0, 0, 0.5);
     
     transition: text-shadow 0.1s ease-out;
     will-change: text-shadow;

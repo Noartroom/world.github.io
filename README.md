@@ -56,7 +56,6 @@ Wir nutzen einen hybriden Stack für maximale Performance, Typsicherheit und Kon
 
 * **UI-Layer (Astro JS):** Verwaltet das DOM, Layouts, SVGs und die *View Transitions*.
 * **Engine-Layer (Rust / WGPU):** Eine via WASM geladene High-Performance-Engine für Rendering, Physik und prozedurale Generierung.
-* **Audio-Layer (IAMF):** State-of-the-Art 3D-Audio mit räumlichen Metadaten.
 * **Nervensystem (`sceneStore`):** Ein zentraler State-Store (Nano Stores), der die 2D- und 3D-Welt synchronisiert.
 
 ## 3. Die Performance-Leiter (Progressive Immersion)
@@ -88,7 +87,7 @@ Wir definieren das Erlebnis entlang von vier Hauptachsen, die Audio, Zeit und Ra
 **Konzept:** Audio wackelt nicht an der ganzen Welt, sondern manifestiert sich in *einem* zentralen, abstrakten Artefakt.
 
 * **Tier 1 (Skulptur):** Ein komplexes 3D-Objekt, dessen Oberfläche (Vertex Shader) durch Bass und Höhen verformt wird. Es pulsiert organisch im Zentrum des Bildschirms.
-* **Tier 2 (4D-Hyperkugel):** Ein prozedural generiertes Objekt (Compute Shader), das sich physikalisch unmöglich verhält. Es nutzt die räumlichen Daten des IAMF-Formats, um sich in die 4. Dimension zu drehen. Es ist die visuelle Seele des Sounds.
+* **Tier 2 (4D-Hyperkugel):** Ein prozedural generiertes Objekt (Compute Shader), das sich physikalisch unmöglich verhält. Es ist die visuelle Seele des Sounds.
 
 ### Achse III: PHYSIK (Die "Atmende Welt")
 
@@ -114,7 +113,6 @@ Wir definieren das Erlebnis entlang von vier Hauptachsen, die Audio, Zeit und Ra
 ### Phase 1: Basis & Immersion (Aktuell)
 
 - [x] WGPU Renderer Setup & Loop
-- [x] IAMF Player Integration (Audio/Video)
 - [x] Basic Interaktion (Maus-Licht)
 - [ ] **Nächster Schritt:** Umbau auf Fullscreen-Hintergrund & transparente UI.
 

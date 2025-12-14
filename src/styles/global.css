@@ -79,65 +79,6 @@ a:visited {
   --moon-color: transparent;
 }
 
-/* --- Dynamic Lighting Engine Styles --- */
-/* Unified lighting system that affects both 3D canvas and HTML elements */
-
-/* Body overlay for ambient light effect - Theme-aware */
-body.light-engine-active::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  z-index: 1; /* Behind Front UI but above Canvas */
-  
-  /* Default: Dark theme colors (cool white) */
-  background: radial-gradient(
-    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
-    rgba(240, 245, 255, calc(0.15 * var(--light-intensity, 0))) 0%,
-    rgba(200, 220, 255, calc(0.10 * var(--light-intensity, 0))) 30%,
-    rgba(0, 0, 0, 0) 70%
-  );
-  
-  transition: opacity 0.3s ease-out, background 0.3s ease-out;
-  mix-blend-mode: screen;
-}
-
-/* Light theme: Warm white tones */
-body.light-mode.light-engine-active::before {
-  background: radial-gradient(
-    circle 400px at var(--light-x, 50vw) var(--light-y, 50vh),
-    rgba(255, 250, 240, calc(0.20 * var(--light-intensity, 0))) 0%,
-    rgba(255, 240, 220, calc(0.12 * var(--light-intensity, 0))) 30%,
-    rgba(0, 0, 0, 0) 70%
-  );
-}
-
-/* Enhanced button lighting effects */
-body.light-engine-active button {
-  position: relative;
-  overflow: visible;
-}
-
-/* Make all interactive elements respond to light */
-body.light-engine-active .global-controls {
-  /* Only update the glow intensity, all other styles are already applied */
-  --panel-glow: calc(var(--light-intensity, 0) * 0.3);
-}
-
-/* Link lighting effects */
-body.light-engine-active a {
-  --light-dx: calc(var(--light-x, 50vw) - 50vw);
-  --light-dy: calc(var(--light-y, 50vh) - 50vh);
-  /* Simplified proximity: use intensity directly */
-  --light-proximity: var(--light-intensity, 0);
-  /* Theme-based glow: cool white for dark theme, warm white for light theme */
-  text-shadow: 
-    0 0 calc(5px * var(--light-intensity, 0) * var(--light-proximity)) rgba(240, 245, 255, calc(var(--light-intensity, 0) * var(--light-proximity) * 0.8)),
-    0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: text-shadow 0.2s ease-out;
-}
-
 /* --- Layer Specific Styles --- */
 
 /* 
@@ -244,9 +185,6 @@ body.layer-back-active #layer-back .cube-container {
   transition: opacity 0.5s ease, transform 0.3s ease, visibility 0s linear 0s;
 }
 
-#layer-front :global(.iamf-player) {
-  transition: opacity 0.5s ease, visibility 0s linear 0s;
-}
 
 /* When idle, fade out controls (Buttons & Player) but keep text/titles visible */
 body.user-idle #layer-persistent .global-controls {
@@ -256,9 +194,4 @@ body.user-idle #layer-persistent .global-controls {
   transition: opacity 1.5s ease-in-out, transform 0.3s ease, visibility 0s linear 1.5s !important;
 }
 
-body.user-idle #layer-front :global(.iamf-player) {
-  opacity: 0 !important;
-  visibility: hidden;
-  /* Delay visibility hide until opacity is done (1.5s) */
-  transition: opacity 1.5s ease-in-out, visibility 0s linear 1.5s !important;
-}
+/* Added comments to replace deleted blocks */

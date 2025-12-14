@@ -14,11 +14,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     id="loader" 
     class="loader"
   >INITIALIZING GPU...</div>
-  <div
-    id="debug-overlay"
-    style="position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.7); padding: 10px; pointer-events: none; font-family: monospace; z-index: 9999;">
-      Waiting for audio data...
-  </div>
 
   <div
     id="time-display"
@@ -35,13 +30,12 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   </div>
   
   <canvas id={CANVAS_ID} tabindex="0" aria-label="3D Canvas"></canvas>
-  <div class="css-light-overlay"></div>
 </div>
 
 <script>
   // @ts-ignore
   import init, { startRenderer } from 'public/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
-  import { theme, activeModel, onSet, isDynamicLightActive, isBlobActive } from '../lib/stores/sceneStore';
+  import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
   import { getAudioData, getStereoData, getComprehensiveAudioAnalysis } from '../lib/stores/audioStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
@@ -57,7 +51,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   let intersectionObserver: IntersectionObserver | null = null;
   let isVisible = true;
   let themeUnsub: (() => void) | null = null;
-  let lightUnsub: (() => void) | null = null;
   let blobUnsub: (() => void) | null = null;
   let modelUnsub: (() => void) | null = null;
   let timeUnsub: (() => void) | null = null;
@@ -148,57 +141,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
                 // Audio intensity is kept for visual effects only (no position changes)
                 // Light position is purely user-controlled via drag
-
-                // Enhanced Audio Analysis & Debug Output
-                const debugEl = document.getElementById('debug-overlay');
-                if (debugEl && frameCount % 10 === 0) {
-                    // Get comprehensive audio analysis
-                    const audioAnalysis = getComprehensiveAudioAnalysis();
-                    const { frequencyBands, rmsEnergy, spatial, spectralCentroid, spectralRolloff, peakFrequency, zeroCrossingRate } = audioAnalysis;
-                    
-                    // Calculate balance for display
-                    const totalVol = (stereo.left + stereo.right) || 1;
-                    const balance = (stereo.right - stereo.left) / totalVol;
-                    
-                    debugEl.innerHTML = `
-                        <div style="font-size: 10px; line-height: 1.4;">
-                            <strong>AUDIO SIGNAL ANALYSIS</strong><br>
-                            <hr style="margin: 4px 0; border-color: #0f0;">
-                            <strong>Basic:</strong><br>
-                            Intensity: ${intensity.toFixed(3)} | Avg: ${avg.toFixed(1)}<br>
-                            L: ${stereo.left.toFixed(1)} | R: ${stereo.right.toFixed(1)}<br>
-                            Balance: ${balance.toFixed(3)}<br>
-                            <hr style="margin: 4px 0; border-color: #0f0;">
-                            <strong>Frequency Bands:</strong><br>
-                            Bass: ${frequencyBands.bass.toFixed(1)} | Mid: ${frequencyBands.mid.toFixed(1)} | Treble: ${frequencyBands.treble.toFixed(1)}<br>
-                            <strong>RMS Energy:</strong><br>
-                            B: ${rmsEnergy.bass.toFixed(3)} | M: ${rmsEnergy.mid.toFixed(3)} | T: ${rmsEnergy.treble.toFixed(3)}<br>
-                            <hr style="margin: 4px 0; border-color: #0f0;">
-                            <strong>Spectral:</strong><br>
-                            Centroid: ${spectralCentroid.toFixed(0)} Hz<br>
-                            Rolloff: ${spectralRolloff.toFixed(0)} Hz<br>
-                            Peak: ${peakFrequency.toFixed(0)} Hz<br>
-                            ZCR: ${zeroCrossingRate.toFixed(3)}<br>
-                            <hr style="margin: 4px 0; border-color: #0f0;">
-                            <strong>Spatial:</strong><br>
-                            Width: ${spatial.stereoWidth.toFixed(3)}<br>
-                            Phase: ${spatial.phaseDifference.toFixed(3)}<br>
-                            Separation: ${spatial.channelSeparation.toFixed(3)}<br>
-                            Azimuth: ${spatial.azimuth.toFixed(3)}
-                        </div>
-                    `;
-                    debugEl.style.color = sum > 0 ? '#0f0' : '#f00';
-                    
-                    if (sum > 0) {
-                        const borderAlpha = 0.3 + (intensity * 0.7);
-                        const glowSize = 5 + (intensity * 20);
-                        debugEl.style.border = `2px solid rgba(0, 255, 0, ${borderAlpha})`;
-                        debugEl.style.boxShadow = `0 0 ${glowSize}px rgba(0, 255, 0, ${borderAlpha})`;
-                    } else {
-                        debugEl.style.border = 'none';
-                        debugEl.style.boxShadow = 'none';
-                    }
-                }
 
                 state.updateAudioData(audioData);
 
@@ -390,30 +332,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       timeUnsub = timeStore.subscribe((value: number) => {
          updateTimeOfDay(value);
       });
-
-      // 1.5 Dynamic Light Sync
-      // Cursor-directed 3D lighting is enabled by default (controlled by isDynamicLightActive)
-      // Initialize light position to center
-      document.documentElement.style.setProperty('--light-x', '50vw');
-      document.documentElement.style.setProperty('--light-y', '50vh');
-      
-      // Handle cursor-directed 3D lighting toggle
-      // When disabled, cursor light should disappear (not stay at last position)
-      lightUnsub = onSet(isDynamicLightActive, ({ newValue }) => {
-         // Update cursor light active state in Rust
-         if (state && state.setCursorLightActive) {
-             state.setCursorLightActive(newValue);
-         }
-         // Toggle the CSS overlay to make the effect visible
-         document.documentElement.style.setProperty('--light-opacity', newValue ? '0.9' : '0');
-      });
-      
-      // Initialize cursor light state (enabled by default)
-      if (state && state.setCursorLightActive) {
-          const initialDynamicLight = isDynamicLightActive.get();
-          state.setCursorLightActive(initialDynamicLight);
-          document.documentElement.style.setProperty('--light-opacity', initialDynamicLight ? '0.9' : '0');
-      }
 
       // Handle light blob spawning/despawning ONLY (separate from CSS lighting)
       blobUnsub = onSet(isBlobActive, ({ newValue }) => {
@@ -659,14 +577,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       }
     });
 
-    // SOTA: Update CSS light position globally on window to ensure it works over UI elements
-    window.addEventListener('pointermove', (e: PointerEvent) => {
-      if (isDynamicLightActive.get()) {
-        document.documentElement.style.setProperty('--light-x', `${e.clientX}px`);
-        document.documentElement.style.setProperty('--light-y', `${e.clientY}px`);
-      }
-    });
-
     container.addEventListener('pointermove', (e: PointerEvent) => {
       if (!state || !canvas) return;
 
@@ -695,8 +605,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
       }
 
 
-      const dynamicLightEnabled = isDynamicLightActive.get();
-      if (dynamicLightEnabled || isDraggingBlob) {
+      if (isDraggingBlob) {
         state.update(x, y, rect.width, rect.height);
       }
 
@@ -729,8 +638,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     if (resizeObserver) resizeObserver.disconnect();
     if (intersectionObserver) intersectionObserver.disconnect();
     if (themeUnsub) themeUnsub();
-    if (lightUnsub) lightUnsub();
-    if (modelUnsub) modelUnsub();
+    if (blobUnsub) blobUnsub();
     if (timeUnsub) timeUnsub();
     
     if (state && state.free) state.free();
@@ -782,23 +690,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
   z-index: 10;
 }
 .loader.hidden { opacity: 0; }
-
-.css-light-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none; /* clicks go through */
-  opacity: var(--light-opacity, 0);
-  transition: opacity 0.3s ease;
-  /* Theme-based gradient: cool white for dark theme */
-  background: radial-gradient(
-    circle 800px at var(--light-x, 50%) var(--light-y, 50%),
-    rgba(240, 245, 255, 0.9) 0%,
-    rgba(200, 220, 255, 0.3) 40%,
-    rgba(0, 0, 0, 0.0) 70%
-  );
-  mix-blend-mode: screen;
-  z-index: 2; /* Ensure it's above the canvas */
-}
 
 .time-display {
   position: absolute;

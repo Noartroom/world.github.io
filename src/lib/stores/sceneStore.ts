@@ -3,10 +3,6 @@ import { persistentAtom } from '@nanostores/persistent';
 
 export { onSet };
 
-// --- Dynamic Light State ---
-// Controls cursor-directed 3D lighting (enabled by default)
-export const isDynamicLightActive = atom(false);
-
 // --- Light Blob State ---
 // Controls the 3D light blob object
 export const isBlobActive = atom(false);
