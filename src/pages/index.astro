@@ -148,12 +148,9 @@ import Renderer from '@/components/Renderer.astro';
       // Determine sensitivity based on scroll speed/intensity
       // Standard deltaY is ~100.
       const magnitude = Math.abs(e.deltaY);
-      let increment = 0.5; // Default 30 mins
+      let increment = 0.25; // Default 15 mins
 
-      // Fast Scroll: If scrolling hard (>150) or holding Shift
-      if (magnitude > 150 || e.shiftKey) {
-        increment = 2.0; // 2 Hours
-      } else if (magnitude > 50) {
+      if (magnitude > 50) {
         increment = 1.0; // 1 Hour
       }
 

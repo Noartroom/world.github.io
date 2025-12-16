@@ -1,112 +1,85 @@
 // Service Worker for Immersive 3D Astro
 // Cache Name: Versioned to force update on change
-const CACHE_NAME = 'immersive-3d-v1';
+const CACHE_NAME = 'immersive-3d-v2';
 
-// Assets to cache immediately (Core App Shell)
+// Files to pre-cache immediately so the "Skeleton" works offline
 const STATIC_ASSETS = [
   '/',
-  '/favicon.ico',
-  '/favicon.svg',
-  '/models/fallback-light.svg',
+  '/manifest.json',
+  '/models/fallback-light.svg', // Vital for offline fallback
   '/models/fallback-dark.svg'
 ];
 
-// Assets to cache lazily (Large 3D models, binaries)
-// These are cached when requested, not on install
-const DYNAMIC_ASSETS = [
-    '/pkg/model_renderer_bg.wasm',
-    '/pkg/model_renderer.js',
-    '/models/newmesh.glb',
-    '/models/dezimiertt-glb-03.glb'
-];
-
-self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...');
-  event.waitUntil(
+self.addEventListener('install', (e) => {
+  self.skipWaiting(); // Take over immediately
+  e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching static assets');
+      console.log('[SW] Pre-caching Static Shell');
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  self.skipWaiting(); // Activate immediately
 });
 
-self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
-  event.waitUntil(
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Removing old cache', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+      return Promise.all(keys.map((key) => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+      }));
+    }).then(() => self.clients.claim())
   );
-  return self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  // 1. Cache First for Assets (GLB, WASM, Images)
-  if (event.request.url.includes('/models/') || 
-      event.request.url.includes('/pkg/') || 
-      event.request.url.endsWith('.svg') ||
-      event.request.url.endsWith('.png')) {
-      
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(event.request).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          // Clone and Cache
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+
+  // --- STRATEGY 1: Cache First (Heavy 3D Assets & Images) ---
+  // Matches: .glb, .wasm (including your ?v=gpu_fix_6), images
+  if (url.pathname.match(/\.(glb|gltf|bin|wasm|png|jpg|jpeg|webp|svg)$/)) {
+    e.respondWith(
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match(e.request).then((cachedResp) => {
+          // Return cache if found
+          if (cachedResp) return cachedResp;
+
+          // Else fetch from network
+          return fetch(e.request).then((networkResp) => {
+            // Cache valid responses for next time
+            if (networkResp.ok) {
+              cache.put(e.request, networkResp.clone());
+            }
+            return networkResp;
           });
-          return response;
         });
       })
     );
     return;
   }
 
-  // 2. Network First for HTML (Navigations)
-  // Ensures user always gets latest content, falls back to cache if offline
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          return caches.match(event.request);
-        })
-    );
-    return;
-  }
+  // --- STRATEGY 2: Stale-While-Revalidate (App Shell / Logic) ---
+  // For HTML, JS, CSS. Loads instantly from cache, updates in background.
+  if (e.request.destination === 'document' || 
+      e.request.destination === 'script' || 
+      e.request.destination === 'style' ||
+      url.pathname === '/') {
+    
+    e.respondWith(
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match(e.request).then((cachedResp) => {
+          
+          const fetchPromise = fetch(e.request).then((networkResp) => {
+             if (networkResp.ok) {
+               cache.put(e.request, networkResp.clone());
+             }
+             return networkResp;
+          }).catch(() => {
+             // Swallow offline errors if we have a cache
+          });
 
-  // 3. Stale-While-Revalidate for CSS/JS
-  // Serve cached version immediately, then update cache in background
-  if (event.request.destination === 'style' || event.request.destination === 'script') {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-           if (networkResponse.ok) {
-               const clone = networkResponse.clone();
-               caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-           }
-           return networkResponse;
+          return cachedResp || fetchPromise;
         });
-        return cachedResponse || fetchPromise;
       })
     );
     return;
   }
-
-  // Default: Network Only
-  event.respondWith(fetch(event.request));
 });

@@ -29,7 +29,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
 <script>
   // @ts-ignore
-  import init, { startRenderer } from 'public/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
+  import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
   import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
@@ -380,8 +380,13 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
           console.log(`Model switched to: ${modelType}`);
         } catch (e) {
           console.error(`Failed to load model ${modelType}:`, e);
+          // If the model fails (e.g. offline), FORCE the fallback UI to appear
+          if (isInitialLoad) {
+            console.log('Offline or Load Error: Activating Fallback Mode');
+            activateFallbackMode(); 
+          }
           if (loader) {
-            loader.textContent = `ERROR LOADING ${modelType.toUpperCase()}`;
+            loader.textContent = `OFFLINE / ERROR`; // Update text to be clear
             // Auto-hide error after 3 seconds
             setTimeout(() => {
               if (loader) loader.classList.add('hidden');
