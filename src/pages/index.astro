@@ -281,7 +281,7 @@ import Renderer from '@/components/Renderer.astro';
   /* --- Back Layer --- */
   #layer-back {
     z-index: 0; /* Default: Behind everything */
-    opacity: 0.3; /* Default: Dim */
+    /* opacity: 0.3; Moved to .back-content to fix ViewTransition bug */
     transform: scale(0.95);
     pointer-events: none;
     display: flex;
@@ -350,6 +350,9 @@ import Renderer from '@/components/Renderer.astro';
     cursor: pointer;
     font-size: 0.9rem;
     
+    /* Mobile Touch Optimization: Disable double-tap zoom delay */
+    touch-action: manipulation;
+
     /* Dynamic lighting effects removed */
     box-shadow: 
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -392,6 +395,8 @@ import Renderer from '@/components/Renderer.astro';
     gap: 1rem;
     cursor: ns-resize;
     user-select: none;
+    /* Ensure no zooming/panning interference while dragging */
+    touch-action: none;
   }
 
   .time-label {
@@ -427,15 +432,13 @@ import Renderer from '@/components/Renderer.astro';
 
   /* --- Back Layer Content Styles --- */
   .back-content {
-    color: rgba(255, 255, 255, 0.8);
+    /* Dimmed: Light=Black 0.3, Dark=White 0.3 */
+    color: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.3));
     text-align: center;
     max-width: 600px;
     padding: 2rem;
     /* Removed background box for cleaner wireframe integration */
-  }
-
-  :global(.light-mode) .back-content {
-    color: #333;
+    transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .cube-container {

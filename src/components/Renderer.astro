@@ -29,7 +29,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
 <script>
   // @ts-ignore
-  import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
+  import init, { startRenderer } from 'public/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
   import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
@@ -72,6 +72,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   let isDraggingBlob = false;
   let hasSpawnedSinceActive = false; // Prevents re-spawning on every mouse move
   
+  // Multi-touch State (Pinch-to-Zoom)
+  const evCache: PointerEvent[] = [];
+  let prevDiff = -1;
+
   // Performance: Cache DOM queries and computed values
   let cachedCanvasRect: DOMRect | null = null;
   let lastCachedRectTime = 0;
@@ -132,7 +136,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
                     if (blobPos && blobPos.length === 2) {
                         const x = blobPos;
                         const y = blobPos;
-                        
                         // Only apply if inside screen bounds
                         if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
                              // Apply magnetic repulsion to UI elements
@@ -505,6 +508,14 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     container.addEventListener('pointerdown', (e: PointerEvent) => {
       if (!state) return;
 
+      evCache.push(e);
+
+      // If multi-touch, skip dragging logic (handled in pointermove)
+      if (evCache.length > 1) {
+          isDragging = false;
+          return;
+      }
+
       const blobActive = isBlobActive.get();
       const now = performance.now();
       if (!cachedCanvasRect || (now - lastCachedRectTime) > RECT_CACHE_DURATION) {
@@ -534,24 +545,74 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       }
     });
 
-    window.addEventListener('pointerup', (e: PointerEvent) => {
+    const handlePointerUp = (e: PointerEvent) => {
+      // Remove from cache
+      const index = evCache.findIndex(cachedEv => cachedEv.pointerId === e.pointerId);
+      if (index > -1) {
+          evCache.splice(index, 1);
+      }
+      
+      // Reset pinch state
+      if (evCache.length < 2) {
+          prevDiff = -1;
+      }
+
+      // Re-anchor if going from 2 -> 1 touches
+      if (evCache.length === 1) {
+          lastX = evCache[0].clientX;
+          lastY = evCache[0].clientY;
+          // Resume dragging only if we were not dragging blob
+          if (!isDraggingBlob) {
+              isDragging = true;
+          }
+      }
+
       if (isDraggingBlob && state && state.stopDragBlob) {
         state.stopDragBlob();
         isDraggingBlob = false;
       }
-      if (isDragging) {
-        isDragging = false;
+      
+      if (evCache.length === 0) {
+          isDragging = false;
+          if (container) {
+            container.style.cursor = 'grab';
+            if (container.hasPointerCapture(e.pointerId)) {
+              container.releasePointerCapture(e.pointerId);
+            }
+          }
       }
-      if (container) {
-        container.style.cursor = 'grab';
-        if (container.hasPointerCapture(e.pointerId)) {
-          container.releasePointerCapture(e.pointerId);
-        }
-      }
-    });
+    };
+
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('pointerleave', handlePointerUp);
 
     container.addEventListener('pointermove', (e: PointerEvent) => {
       if (!state || !canvas) return;
+
+      // Update cache
+      const index = evCache.findIndex(cachedEv => cachedEv.pointerId === e.pointerId);
+      if (index > -1) {
+          evCache[index] = e;
+      }
+
+      // Multi-touch Pinch-to-Zoom
+      if (evCache.length === 2) {
+          const dx = evCache[1].clientX - evCache[0].clientX;
+          const dy = evCache[1].clientY - evCache[0].clientY;
+          const curDiff = Math.hypot(dx, dy);
+
+          if (prevDiff > 0) {
+              const delta = prevDiff - curDiff;
+              // Zoom sensitivity: positive delta = pinch in (zoom out) -> increase radius
+              state.update_camera(0, 0, delta * 3.0);
+          }
+          prevDiff = curDiff;
+          
+          // Reset drag state during zoom
+          isDragging = false;
+          return;
+      }
 
       const now = performance.now();
       if (!cachedCanvasRect || (now - lastCachedRectTime) > RECT_CACHE_DURATION) {
