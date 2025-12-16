@@ -303,7 +303,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
             if (state) {
                 state.setTheme(newValue === 'dark');
                 // Fix: Re-apply time-of-day lighting immediately to prevent theme defaults from overriding it
-                updateTimeOfDay(timeStore.get());
+                // Firefox Fix: Defer execution to ensure setTheme has fully processed
+                requestAnimationFrame(() => {
+                    updateTimeOfDay(timeStore.get());
+                });
             }
         });
       }

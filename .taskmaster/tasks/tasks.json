@@ -40,7 +40,7 @@
         "description": "Improve touch interaction performance and responsiveness in both the UI (index.astro) and 3D scene (lib.rs/Renderer).",
         "details": "",
         "testStrategy": "",
-        "status": "completed",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": []
@@ -77,12 +77,71 @@
         "dependencies": [],
         "priority": "medium",
         "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Review and improve Accessibility",
+        "description": "Audit and improve accessibility compliance focusing on ARIA labels, keyboard navigation, and HTML5 landmarks.",
+        "details": "Requirements:\n1. Add ARIA labels: Ensure [role]s have all required [aria-*] attributes. Specific target: div#time-display.global-toggle.time-control.\n2. Improve keyboard navigation: Ensure interactive controls are keyboard focusable.\n3. Interactive elements must indicate their purpose and state.\n4. Ensure logical tab order.\n5. Visual order on the page should follow DOM order.\n6. Prevent accidental focus traps.\n7. Direct user focus to new content added to the page.\n8. Use HTML5 landmark elements to improve navigation.\n9. Hide offscreen content from assistive technology.\n10. Ensure custom controls have associated labels and ARIA roles.",
+        "testStrategy": "Manual verification using keyboard navigation and screen reader tools (e.g., VoiceOver, NVDA). Code review for ARIA attributes.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Fix Time Control ARIA Attributes",
+            "description": "Add `aria-valuenow` to `#time-display` and ensure it updates dynamically with JS when the time changes. Also add `aria-valuetext` for human-readable time.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 8
+          },
+          {
+            "id": 2,
+            "title": "Improve Toggle Button Accessibility",
+            "description": "Add `aria-pressed` attributes to `#blob-toggle`, `#themeToggle`, and `#modelToggle` where appropriate to indicate state. Ensure all buttons have accessible names.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 8
+          },
+          {
+            "id": 3,
+            "title": "Manage Focus/Visibility for Layers",
+            "description": "Implement `inert` or `aria-hidden` toggling for `#layer-back` and `#layer-front` when they are inactive to prevent focus traps in hidden content.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 8
+          },
+          {
+            "id": 4,
+            "title": "Improve Document Structure and Landmarks",
+            "description": "Wrap global controls in a `<nav>` or `<aside>` with an aria-label. Ensure proper landmark usage in Layout.astro.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 8
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Fix Firefox Dynamic Light Bug",
+        "description": "Fix dynamic light/theme issue in Firefox by deferring lighting update.",
+        "details": "The previous fix for dynamic lighting persistence across theme changes worked in Safari but failed in Firefox. This was likely due to a race condition where the theme reset in the renderer overwrote the lighting update.\n\nFix applied: Wrapped `updateTimeOfDay` in `requestAnimationFrame` within the theme subscription in `Renderer.astro` to ensure it runs after the theme update is processed.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-14T03:53:14.763Z"
+      "updated": "2025-12-16T22:13:25.370Z"
     }
   }
 }

@@ -6,7 +6,7 @@ import Renderer from '@/components/Renderer.astro';
   <main>
     <!-- Persistent UI: Always on top (Buttons) -->
     <div id="layer-persistent">
-      <div class="global-controls">
+      <nav class="global-controls" aria-label="Global Controls">
         <div class="layer-nav">
           <button id="nav-front" class="global-toggle active" aria-pressed="true">Front Focus</button>
           <button id="nav-back" class="global-toggle" aria-pressed="false">Back Focus</button>
@@ -14,15 +14,15 @@ import Renderer from '@/components/Renderer.astro';
         
         <div class="divider"></div>
 
-        <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme">Toggle Theme</button>
-        <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model">Switch Model</button>
-        <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect">Toggle Light Blob</button>
+        <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme" aria-pressed="false">Toggle Theme</button>
+        <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model" aria-pressed="false">Switch Model</button>
+        <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect" aria-pressed="false">Toggle Light Blob</button>
         
-        <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24">
+        <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24" aria-valuenow="12" aria-valuetext="12:00 UTC">
           <span class="time-label">TIME</span>
           <span class="time-value">12:00</span>
         </div>
-      </div>
+      </nav>
     </div>
 
     <!-- Back Layer: Content behind the 3D scene (Moves to front when active) -->
@@ -81,6 +81,10 @@ import Renderer from '@/components/Renderer.astro';
       document.body.classList.add('dark-mode');
       document.body.classList.remove('light-mode');
     }
+    // Update button state
+    if (themeButton) {
+      themeButton.setAttribute('aria-pressed', (newTheme === 'dark').toString());
+    }
   });
 
   const modelButton = document.getElementById('modelToggle');
@@ -93,9 +97,24 @@ import Renderer from '@/components/Renderer.astro';
     }
   });
 
+  // Subscribe to model changes
+  activeModel.subscribe(model => {
+    if (modelButton) {
+      // Assuming 'dark' model corresponds to the "active/pressed" state of the switch
+      modelButton.setAttribute('aria-pressed', (model === 'dark').toString());
+    }
+  });
+
   const blobButton = document.getElementById('blob-toggle');
   blobButton?.addEventListener('click', () => {
     isBlobActive.set(!isBlobActive.get());
+  });
+
+  // Subscribe to blob changes
+  isBlobActive.subscribe(active => {
+    if (blobButton) {
+      blobButton.setAttribute('aria-pressed', active.toString());
+    }
   });
 
   // --- Layer Navigation Logic ---
@@ -121,6 +140,22 @@ import Renderer from '@/components/Renderer.astro';
       navBack.classList.toggle('active', isBack);
       navBack.setAttribute('aria-pressed', isBack.toString());
     }
+
+    // Manage Focus/Visibility (Inert)
+    const layerBack = document.getElementById('layer-back');
+    const layerFront = document.getElementById('layer-front');
+
+    if (layerBack && layerFront) {
+      if (isBack) {
+        // Back is active: Front should be inert
+        layerFront.setAttribute('inert', '');
+        layerBack.removeAttribute('inert');
+      } else {
+        // Front is active: Back should be inert
+        layerBack.setAttribute('inert', '');
+        layerFront.removeAttribute('inert');
+      }
+    }
   });
 
   // Time Control Logic
@@ -141,6 +176,10 @@ import Renderer from '@/components/Renderer.astro';
   timeStore.subscribe(value => {
     if (timeValue) {
       timeValue.textContent = formatTime(value);
+    }
+    if (timeDisplay) {
+      timeDisplay.setAttribute('aria-valuenow', value.toString());
+      timeDisplay.setAttribute('aria-valuetext', formatTime(value));
     }
   });
 
