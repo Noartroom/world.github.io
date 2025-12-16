@@ -442,15 +442,15 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       if (fallbackContainer) fallbackContainer.classList.remove('hidden');
 
       // Sync Fallback Theme
-      themeUnsub = onSet(theme, ({ newValue }) => {
+      themeUnsub = onSet(activeModel, ({ newValue }) => {
           updateFallbackImage(newValue);
       });
-      updateFallbackImage(theme.get());
+      updateFallbackImage(activeModel.get());
   }
 
-  function updateFallbackImage(currentTheme: string) {
+  function updateFallbackImage(currentModel: string) {
       if (fallbackImage) {
-          fallbackImage.src = currentTheme === 'dark'
+          fallbackImage.src = currentModel === 'dark'
               ? '/models/fallback-dark.svg'
               : '/models/fallback-light.svg';
       }

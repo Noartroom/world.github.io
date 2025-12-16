@@ -33,10 +33,17 @@ export function initDeviceDetection() {
   // 2. Low logical processors (< 4)
   // 3. Low device memory (if available, < 4GB)
   // 4. No WebGPU support (Automatic fallback)
+  // 5. Data Saver / Lite Mode active
   
   let isLowPower = !hasWebGPU; // If no WebGPU, we MUST be in "fallback" mode basically
 
-  if (hasWebGPU) {
+  // @ts-ignore
+  if (navigator.connection && navigator.connection.saveData) {
+      isLowPower = true;
+      console.log('Low Power Mode: Data Saver active');
+  }
+
+  if (hasWebGPU && !isLowPower) {
       // @ts-ignore
       const cores = navigator.hardwareConcurrency || 4;
       // @ts-ignore

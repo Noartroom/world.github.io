@@ -734,7 +734,6 @@ impl State {
     pub fn set_environment_light(&mut self, sky_r: f32, sky_g: f32, sky_b: f32, light_r: f32, light_g: f32, light_b: f32) {
         self.base_sky_color = [sky_r, sky_g, sky_b, 1.0];
         self.base_light_color = [light_r, light_g, light_b, 1.0];
-        // Don't log every frame, it kills performance
         self.update_theme_lighting();
     }
 
