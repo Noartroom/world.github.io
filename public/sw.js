@@ -56,26 +56,40 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // --- STRATEGY 2: Stale-While-Revalidate (App Shell / Logic) ---
-  // For HTML, JS, CSS. Loads instantly from cache, updates in background.
-  if (e.request.destination === 'document' || 
-      e.request.destination === 'script' || 
-      e.request.destination === 'style' ||
-      url.pathname === '/') {
+  // --- STRATEGY 2: Network First (HTML / Navigation) ---
+  // Ensure we always get the latest index.html so we don't request 404 assets
+  if (e.request.mode === 'navigate' || url.pathname === '/') {
+    e.respondWith(
+      fetch(e.request)
+        .then((networkResp) => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, networkResp.clone());
+            return networkResp;
+          });
+        })
+        .catch(() => {
+          return caches.match(e.request); // Offline fallback
+        })
+    );
+    return;
+  }
+
+  // --- STRATEGY 3: Stale-While-Revalidate (CSS / JS) ---
+  // For styles and scripts, try cache first, but update in background
+  if (e.request.destination === 'script' || 
+      e.request.destination === 'style') {
     
     e.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         return cache.match(e.request).then((cachedResp) => {
-          
           const fetchPromise = fetch(e.request).then((networkResp) => {
              if (networkResp.ok) {
                cache.put(e.request, networkResp.clone());
              }
              return networkResp;
           }).catch(() => {
-             // Swallow offline errors if we have a cache
+             // Swallow offline errors
           });
-
           return cachedResp || fetchPromise;
         });
       })
@@ -83,4 +97,3 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 });
-
