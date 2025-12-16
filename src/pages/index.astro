@@ -127,10 +127,14 @@ import Renderer from '@/components/Renderer.astro';
   const timeDisplay = document.getElementById('time-display');
   const timeValue = timeDisplay?.querySelector('.time-value');
 
+  // Get timezone info
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Extract city: "Europe/Berlin" -> "Berlin", replace underscores with spaces
+  const city = (timeZone.split('/').pop() || 'UTC').replace(/_/g, ' ').toUpperCase();
   function formatTime(hours: number): string {
     const h = Math.floor(hours);
     const m = Math.floor((hours - h) * 60);
-    return `01. ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${city}`;
   }
 
   // Update display when store changes
@@ -376,7 +380,7 @@ import Renderer from '@/components/Renderer.astro';
        top: auto;
        bottom: 5rem; /* Above audio player */
        right: 1rem;
-       max-width: 180px;
+       max-width: 260px;
     }
     
     .global-toggle {

@@ -300,7 +300,11 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
         const initialTheme = theme.get();
         state.setTheme(initialTheme === 'dark');
         themeUnsub = onSet(theme, ({ newValue }) => {
-            if (state) state.setTheme(newValue === 'dark');
+            if (state) {
+                state.setTheme(newValue === 'dark');
+                // Fix: Re-apply time-of-day lighting immediately to prevent theme defaults from overriding it
+                updateTimeOfDay(timeStore.get());
+            }
         });
       }
       
