@@ -12,10 +12,6 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 
 js-sys = "0.3.69"
 
-# Logging
-log = "0.4.21"
-console_log = "1.0.0"
-
 # WASM (Exakt aufeinander abgestimmte Versionen)
 wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4.42"
@@ -45,24 +41,17 @@ web-sys = { version = "0.3.69", features = [
 # WebGPU/WGPU-Rendering
 wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82
 
-# Texture Compression
-ktx2 = "0.3.0"
-
 # 3D-Mathematik
 glam = { version = "0.28.0", features = ["bytemuck"] }
 
 # GLTF/GLB-Parsing
 gltf = { version = "1.4.1", features = ["default", "import", "KHR_lights_punctual"] }
-anyhow = "1.0.86"
-# Lade-Utilities
-reqwest = { version = "0.12.5", features = ["json"] }
 
 # Async Messaging
 flume = "0.11.0"
 
 # Sicherer Umgang mit Puffern
 bytemuck = { version = "1.16.0", features = ["derive"] }
-instant = "0.1.12"
 
 [features]
 default = ["console_error_panic_hook"]

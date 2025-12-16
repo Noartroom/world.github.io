@@ -1,0 +1,14 @@
+
+Goal: Make mobile friendly (touch and performance), replace 3d layers with a layer containing only an svg of the model (+ maybe light blob?).
+Goal: Performance improvements and optimizations without taking away from beautiful rendering.
+Specifics:
+- Check codebase for mesh code (e.g. create_sphere_mesh) - remove if possible/unused.
+- Check for unnecessary rust imports like loggers and very old/outdated crates.
+- Develop a strategy for low and high power devices using deviceStore.
+- Fallback strategy for low power: rendering merely SVG files of the corresponding model.
+- Optimize use of service workers.
+- Bug fix: Shown time should accurately reflect the current time (currently rounds to full hours).
+- Cleanup: Check if audio_store is redundant after removing iamf.
+
+
+

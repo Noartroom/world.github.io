@@ -10,22 +10,12 @@ use flume::{Sender, Receiver};
 use wasm_bindgen_futures::JsFuture;
 use js_sys::{Uint8Array, Array};
 use std::panic;
-use instant;
 
 // --- CONSTANTS ---
 // OPTIMIZATION: 4x MSAA for SOTA quality
 const SAMPLE_COUNT: u32 = 4;
 
 // --- Uniforms ---
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct AudioUniform {
-    intensity: f32,
-    balance: f32,
-    _pad1: f32,
-    _pad2: f32,
-}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -57,7 +47,6 @@ struct BlobUniform {
 struct SceneUniform {
     camera: CameraUniform,
     light: LightUniform,
-    audio: AudioUniform,
     blob: BlobUniform,
 }
 
@@ -440,7 +429,6 @@ pub struct State {
     msaa_texture: Option<wgpu::Texture>,
     msaa_view: Option<wgpu::TextureView>,
     sample_count: u32,
-    grid_pipeline: wgpu::RenderPipeline,
     opaque_pipeline: wgpu::RenderPipeline,
     transparent_pipeline: wgpu::RenderPipeline,
     blob_pipeline: wgpu::RenderPipeline, // NEW PIPELINE for blob
@@ -452,9 +440,6 @@ pub struct State {
     scene_uniform: SceneUniform,
     scene_buffer: wgpu::Buffer,
     scene_bind_group: wgpu::BindGroup,
-
-    audio_data: Vec<u8>,
-    cached_audio_intensity: f32, // Cached audio intensity to avoid redundant calculations
     
     // Camera State (Polar coordinates)
     camera_target: Vec3,
@@ -832,7 +817,27 @@ impl State {
 
     #[wasm_bindgen(js_name = "loadModelFromBytes")]
     pub fn load_model_from_bytes(&mut self, bytes: &[u8]) {
-        let result = gltf::Gltf::from_slice(bytes);
+        // HACK: Patch "extensionsRequired" to "extensionsOptional" to bypass gltf validation
+        // for unsupported extensions like KHR_texture_transform.
+        let mut modified_bytes = std::borrow::Cow::Borrowed(bytes);
+        if bytes.len() >= 20 && &bytes[0..4] == b"glTF" {
+            let json_len = u32::from_le_bytes(bytes[12..16].try_into().unwrap_or([0,0,0,0])) as usize;
+            let chunk_type = &bytes[16..20];
+            if chunk_type == b"JSON" && bytes.len() >= 20 + json_len {
+                let json_slice = &bytes[20..20+json_len];
+                let key = b"\"extensionsRequired\"";
+                if let Some(pos) = json_slice.windows(key.len()).position(|w| w == key) {
+                    let mut owned = bytes.to_vec();
+                    let replacement = b"\"extensionsOptional\"";
+                    let abs_pos = 20 + pos;
+                    owned[abs_pos..abs_pos + key.len()].copy_from_slice(replacement);
+                    modified_bytes = std::borrow::Cow::Owned(owned);
+                    web_sys::console::warn_1(&"Patched GLB: Bypassed extensionsRequired validation (KHR_texture_transform likely)".into());
+                }
+            }
+        }
+
+        let result = gltf::Gltf::from_slice(&modified_bytes);
         match result {
             Ok(gltf) => {
                 let document = gltf.document;
@@ -1056,15 +1061,6 @@ impl State {
             Err(e) => {
                 web_sys::console::error_1(&format!("Failed to parse GLB: {:?}", e).into());
             }
-        }
-    }
-
-    #[wasm_bindgen(js_name = "updateAudioData")]
-    pub fn update_audio_data(&mut self, data: &[u8]) {
-        if self.audio_data.len() != data.len() {
-            self.audio_data = data.to_vec();
-        } else {
-            self.audio_data.copy_from_slice(data);
         }
     }
 
@@ -1532,19 +1528,7 @@ impl State {
             }
         }
 
-        // 1. Calculate Audio Stats (intensity only - no position changes) - cache for reuse
-        let avg_volume = if self.audio_data.is_empty() {
-            0.0
-        } else {
-            let sum: u32 = self.audio_data.iter().map(|&x| x as u32).sum();
-            sum as f32 / self.audio_data.len() as f32
-        };
-        self.cached_audio_intensity = (avg_volume / 255.0).min(1.0);
-
-        // 2. Update Audio Uniform (balance kept at 0.0 - not used for lighting)
-        self.scene_uniform.audio = AudioUniform { intensity: self.cached_audio_intensity, balance: 0.0, _pad1: 0.0, _pad2: 0.0 };
-        
-        // 3. Update lighting (ensure it's updated every frame)
+        // 1. Update lighting (ensure it's updated every frame)
         // Both blob light and cursor light can be active simultaneously
         // When both are active, blend their positions to create combined lighting
         // Update blob light position if blob exists and is enabled
@@ -1615,35 +1599,6 @@ impl State {
             // Bind Global Scene Uniforms (Group 0)
             render_pass.set_bind_group(0, &self.scene_bind_group, &[]);
 
-            // Draw Sky/Grid
-            // Note: Grid pipeline needs to be updated to use Light group or ignore it
-            // For now, let's assume Grid uses Audio at group 0 or 1.
-            // Wait, Grid pipeline definition below uses Audio at 0, Camera at 1. 
-            // Model uses Camera at 0, Light at 1. This is a mismatch.
-            // Let's unify:
-            // Group 0: Camera
-            // Group 1: Light (or Audio + Light combined? Or Audio separate?)
-            // To match "wasm_3d_w_adv", it used:
-            // Group 0: Camera
-            // Group 1: Light
-            // Group 2: Material
-            //
-            // We need to inject Audio somewhere. Let's put Audio in Group 1 with Light? Or make Group 3?
-            // "wasm_3d_w_adv" didn't seem to use Audio in shader code shown, but OUR current shader does.
-            // Let's re-bind for Grid.
-            // Draw Sky (Background) - DISABLED for clean slate
-            // render_pass.set_pipeline(&self.sky_pipeline);
-            // render_pass.draw(0..3, 0..1);
-
-            // Draw Grid (High-Fidelity Sound Wave Visualization) - Only when audio is active
-            // Use cached audio intensity (calculated once at start of render)
-            // Only render grid if audio is active (intensity > 0.01 to avoid noise)
-            if self.cached_audio_intensity > 0.01 {
-                render_pass.set_pipeline(&self.grid_pipeline);
-                // Grid layout now just uses the scene uniform at group 0
-                render_pass.draw(0..(200 * 200 * 6), 0..1);
-            }
-            
             // Draw Model Opaque
             // Draw Model Opaque
             if let Some(model) = &self.model {
@@ -1714,11 +1669,11 @@ impl State {
 
 #[wasm_bindgen(js_name = "startRenderer")]
 #[allow(unreachable_code, unused_variables)]
-pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue> {
+pub async fn start_renderer(canvas: HtmlCanvasElement, is_mobile: bool) -> Result<State, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    web_sys::console::log_1(&"Initializing Advanced WGPU Renderer...".into());
+    web_sys::console::log_1(&format!("Initializing Advanced WGPU Renderer... Mobile: {}", is_mobile).into());
 
     let instance = wgpu::Instance::default();
     
@@ -1799,6 +1754,8 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
     let actual_sample_count = if info.backend == wgpu::Backend::Gl {
         web_sys::console::warn_1(&"WebGL backend detected, disabling MSAA to prevent panic.".into());
         1
+    } else if is_mobile {
+        2 // Reduce MSAA for mobile
     } else {
         SAMPLE_COUNT
     };
@@ -1824,7 +1781,6 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
             color: base_light,
             sky_color: base_sky,
         },
-        audio: AudioUniform { intensity: 0.0, balance: 0.0, _pad1: 0.0, _pad2: 0.0 },
         blob: BlobUniform { position: [0.0; 4], color: [1.0; 4] },
     };
     let scene_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -1873,24 +1829,7 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
         push_constant_ranges: &[],
     });
 
-    // Grid Pipeline Layout
-    let grid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Grid Pipeline Layout"),
-        bind_group_layouts: &[&scene_layout],
-        push_constant_ranges: &[],
-    });
-
     // --- Pipelines ---
-
-    let grid_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Grid Pipeline"), layout: Some(&grid_pipeline_layout),
-        vertex: wgpu::VertexState { module: &shader, entry_point: "vs_grid", buffers: &[], compilation_options: Default::default() },
-        fragment: Some(wgpu::FragmentState { module: &shader, entry_point: "fs_grid", targets: &[Some(wgpu::ColorTargetState { format: config.format, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
-        primitive: wgpu::PrimitiveState::default(), 
-        depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: true, depth_compare: wgpu::CompareFunction::Less, stencil: Default::default(), bias: Default::default() }),
-        multisample: wgpu::MultisampleState { count: actual_sample_count, mask: !0, alpha_to_coverage_enabled: false },
-        multiview: None
-    });
 
     let opaque_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Opaque Pipeline"), layout: Some(&pipeline_layout),
@@ -1999,12 +1938,11 @@ pub async fn start_renderer(canvas: HtmlCanvasElement) -> Result<State, JsValue>
     Ok(State {
         surface, device: Rc::new(device), queue: Rc::new(queue), config, depth_texture, depth_view,
         msaa_texture, msaa_view, sample_count: actual_sample_count,
-        grid_pipeline, opaque_pipeline, transparent_pipeline, blob_pipeline,
+        opaque_pipeline, transparent_pipeline, blob_pipeline,
         mipmap_pipeline_linear: Rc::new(mipmap_pipeline_linear),
         mipmap_pipeline_srgb: Rc::new(mipmap_pipeline_srgb),
         mipmap_bind_group_layout: Rc::new(mipmap_bind_group_layout),
         scene_uniform, scene_buffer, scene_bind_group,
-        audio_data: Vec::new(), cached_audio_intensity: 0.0,
         camera_target: Vec3::ZERO, camera_radius: 10.0, camera_azimuth: 0.0, camera_polar: 1.57,
         light_pos_3d: vec3(2.0, 2.0, 2.0), cursor_light_pos_3d: vec3(2.0, 2.0, 2.0), cursor_light_active: false, blob_light_pos_3d: Vec3::ZERO,
         is_dark_theme: true, // Default to dark theme

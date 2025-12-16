@@ -1,0 +1,88 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Develop Device Power Strategy",
+        "description": "Develop a strategy for low and high power devices using deviceStore. Define thresholds for switching to fallback mode (SVG).",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement SVG Fallback for Low Power",
+        "description": "Implement a fallback layer that renders an SVG of the model instead of the 3D scene for low-power devices. Ensure transition is smooth or initial load selects correct mode.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Rust Code Cleanup & Optimization",
+        "description": "Review src/lib.rs and other Rust files. Remove procedural mesh generation (create_sphere_mesh) if unused/replaced by GLB. Remove unnecessary logging (console_log) and update/clean up dependencies in cargo.toml.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Mobile Touch & Performance Optimization",
+        "description": "Improve touch interaction performance and responsiveness in both the UI (index.astro) and 3D scene (lib.rs/Renderer).",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Optimize Service Workers",
+        "description": "Investigate current Service Worker usage (if any) and implement/optimize caching strategies for assets (GLB, textures) to improve load performance on mobile.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Fix Time Display Accuracy",
+        "description": "Fix the time display in index.astro to show the actual current system time on load, and ensure updates are accurate (minutes, not just hours).",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Audio Store Cleanup",
+        "description": "Analyze src/lib/stores/audioStore.ts. Determine if it's still needed for visualization without IAMF. Remove if redundant or refactor.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-12-14T03:53:00.809Z",
+      "description": "Default tasks context",
+      "updated": "2025-12-14T03:53:14.763Z"
+    }
+  }
+}

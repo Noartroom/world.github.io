@@ -1,7 +1,7 @@
 ---
 // model_renderer/src/components/Renderer.astro
 const CANVAS_ID = "webgpu-canvas";  // modernart1-sculpt-1, IMAGE3D-1, dezimiertt-glb-03
-const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
+const { modelPath = "/models/newmesh.glb" } = Astro.props;
 ---
 <div 
   class="renderer-container" 
@@ -14,11 +14,6 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     id="loader" 
     class="loader"
   >INITIALIZING GPU...</div>
-
-  <div
-    id="time-display"
-    class="time-display"
-  ></div>
 
   <!-- Low Power Mode Fallback -->
   <div id="fallback-container" class="fallback-container hidden">
@@ -34,13 +29,12 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
 <script>
   // @ts-ignore
-  import init, { startRenderer } from 'public/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
+  import init, { startRenderer } from '/pkg/model_renderer.js?v=gpu_fix_6'; /* adjust path for prod/dev */
   import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
-  import { getAudioData, getStereoData, getComprehensiveAudioAnalysis } from '../lib/stores/audioStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
 
-    // DOM Elemente
+  // DOM Elemente
   const container = document.getElementById('renderer-container-id');
   const CANVAS_ID = container?.dataset.canvasId;
   const modelPath = container?.dataset.modelPath;
@@ -127,30 +121,8 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
     if (state) {
       try {
-        // Pass audio data to WASM
-        try {
-            const audioData = getAudioData();
-            const stereo = getStereoData();
 
-            if (audioData && audioData.length > 0 && audioData instanceof Uint8Array) {
-                const sum = audioData.reduce((a, b) => a + b, 0);
-                const avg = sum / audioData.length;
-                
-                // avg is roughly 0-100, max 255.
-                const intensity = Math.min(avg / 80.0, 1.0); // Increased sensitivity
-
-                // Audio intensity is kept for visual effects only (no position changes)
-                // Light position is purely user-controlled via drag
-
-                state.updateAudioData(audioData);
-
-                // CSS overlay high emittance effect removed - only 3D cursor-directed lighting remains
-            }
-        } catch (audioErr) {
-             console.warn("Audio Update Error (Non-fatal):", audioErr);
-        }
-
-        // --- PHASE 2: UI Repulsion (Blob -> UI) ---
+        // --- UI Repulsion (Blob -> UI) ---
         // Get blob position from Rust and push UI elements away
         if (state.getBlobScreenPosition) {
             if (isBlobActive.get()) {
@@ -313,7 +285,8 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     try {
       if (loader) loader.classList.remove('hidden');
       await init();
-      state = await startRenderer(canvas);
+      const isMobile = window.innerWidth < 768;
+      state = await startRenderer(canvas, isMobile);
       
       // Hide fallback if it was visible
       if (fallbackContainer) fallbackContainer.classList.add('hidden');
@@ -372,7 +345,7 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
 
         const modelPath = modelType === 'dark'
           ? '/models/dezimiertt-glb-03.glb'
-          : '/models/modernart1-sculpt-1.glb';
+          : '/models/newmesh.glb';
         
         isLoadingModel = true;
         
@@ -748,3 +721,4 @@ const { modelPath = "/models/modernart1-sculpt-1.glb" } = Astro.props;
     transform: scale(1.05);
 }
 </style>
+

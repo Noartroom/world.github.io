@@ -1,112 +1,50 @@
-Project: Dreamworld — State Of The Aart Implementation Spec
+Project: Immersive 3D Astro Website Optimization
+Goal: Optimize the codebase by removing unused code, dependencies, and improving performance, accessibility, and code quality. Step-by-step approach with manual testing.
 
-Core Directive:
-Favor procedural geometry, mathematical lighting, and seamless DOM integration over heavy textures and generic game-engine bloat. Tolerate zero bugs, glitches errors, warnings or other performance impediments that aren't absolutely necessary for our SOTA quality.
+1. Unused Rust dependencies (remove)
+   - Remove `log`, `console_log`, `reqwest`, `ktx2`, `anyhow` from `src/cargo.toml`.
+   - Verify build passes.
 
-*** AGENT OVERRIDE: CONTINUOUS REFINEMENT ***
-Do not stop at "bug-free and functional" 
-1. Critique: Is the interaction tactile? Does it feel heavy?
-2. Optimize: Minimal allocations inside the render loop. Uniform updates only.
-3. Polish: Push the limits of WebGPU shaders (4x MSAA, High-Poly Spheres) until frame budgets are hit.
+2. Unused code (remove)
+   - In `src/lib.rs`: Remove commented-out sky pipeline code (lines 1634-1636) and large comment block (lines 1618-1633).
+   - In `src/components/Renderer.astro`: Remove `lightUnsub` variable.
+   - In `src/components/Renderer.astro`: Remove/conditionally compile debug overlay code (lines 152-201).
+   - In `src/pages/index.astro`: Remove console.log('Idle detection initialized').
 
-1. The Vision
-A "Sandwich" experience where the 3D world exists physically between HTML layers. It is not a background; it is a participant in the interface.
-- Aesthetic Goal: "Dreamworld" Smooth, matte surfaces, soft shadows, and physical weight. Prefer geometry and light over fallback textures. Smooth movements with effortless navigation.
-- Interaction Philosophy: The 3D object is a physical presence that pushes 2D UI elements away and reacts to the cursor like a magnetic field.
+3. Mobile optimizations
+   - Adaptive grid resolution (200x200 desktop, 100x100 mobile).
+   - Mobile-specific MSAA (2x mobile, 4x desktop).
+   - Use `devicePixelRatio < 2` check.
 
-2. Architecture (The "Sandwich" Stack)
-- Layer 0 (Back): HTML/CSS Background (Time-of-Day Gradient).
-- Layer 1 (Middle): WebGPU Canvas (Transparent, Alpha-PreMultiplied).
-- Layer 2 (Front): Floating UI Elements (HTML/CSS) that react to Layer 1.
+4. Performance improvements
+   - Optimize audio data updates in Rust (only update when data changes).
+   - JavaScript: Update debug overlay less frequently (every 30 frames).
+   - Remove console logs in production builds.
 
-- Engine Core: Custom Rust/WGPU (v24+).
-  - Architecture: Forward Renderer.
-  - Optimization Strategy: "Uniform-Driven Motion." Never recreate mesh buffers on frame updates. Use Uniform Buffers (`BlobUniform`) to modify vertex positions in the shader.
-- Data Sync: `get_blob_screen_position` (Rust) -> `requestAnimationFrame` (JS) -> CSS Transforms.
+5. Accessibility improvements
+   - Increase mobile touch targets (min 44x44px).
+   - Add focus indicators for keyboard users.
+   - Add aria-live regions.
+   - Respect `prefersReducedMotion`.
 
-3. The "Immersive Axes" (Feature Goals)
+6. Code quality improvements
+   - Rust: Remove unused imports (e.g., `instant`).
+   - Rust: Improve error handling (replace unwraps).
+   - TypeScript: Improve `state: any` type in `Renderer.astro`.
+   - Clean up code organization.
 
-Axis I: TIME (Atmospheric Sync)
-- Goal: The digital world reflects the user's physical reality.
-- Mechanism: 
-  - CSS Background Gradient syncs with local time (Dawn/Day/Dusk/Night).
-  - WGPU Lighting (Hemispheric Ambient) syncs exactly with the CSS gradient colors.
-  - "Sky Color" and "Ground Color" are passed as Uniforms to the PBR Shader.
+7. Dependency version check
+   - Check `wasm-bindgen`, `web_sys`, `wgpu`, `glam` versions.
 
-Axis II: AUDIO VISUALIZATION (Deforming Space)
-- Goal: Sound is not a bar graph; it is a physical force.
-- Mechanism:
-  - Vertex Shader Deformation: The "Grid" floor ripples using `sin/cos` waves driven by `audio.intensity` uniforms.
-  - SOTA Optimization: 100% GPU-side animation. No CPU vertex manipulation.
+8. Build optimizations
+   - Enable `wasm-opt -Os`.
+   - Enable LTO in release profile.
+   - Strip symbols.
 
-Axis III: THE PHYSICAL INTERFACE (3D-to-2D Collision)
-- Goal: Break the fourth wall.
-- Mechanism: 
-  - Project the 3D "Blob" position to 2D Screen Space (NDC -> Pixel Coordinates) inside Rust.
-  - JS reads this coordinate and applies CSS `transform: translate()` to "push" HTML buttons away when the Blob gets close.
-- Physics: "Physics-Lite." Use algebraic distance checks (Circle-Rectangle collision) in JS for UI repulsion, avoiding heavy WASM physics engines for simple UI effects.
+9. "iamb sound mesh" check
+   - Verify existence in git history.
 
-Axis IV: CLAY LIGHTING (Procedural PBR)
-- Goal: Tangible realism without texture downloads.
-- Mechanism:
-  - "Clay PBR": High Roughness, Low Metallic, High Ambient Occlusion.
-  - Lighting: 
-    1. Direct: Point Light (Cursor/Sun).
-    2. Indirect: Hemispheric Ambient (Gradient based on Normal.y).
-    3. Emissive: Audio intensity maps to material emission (Glow).
-
-4. Technical Specifications (SOTA Standards)
-
-Graphics (WGPU/Rust)
-- MSAA: 4x Multisample Anti-Aliasing (Critical for the "smooth clay" look).
-- Color Space: Hardware sRGB decoding.
-- Asset Loading: Low-Level `gltf::Gltf::from_slice`. Bypass high-level validation to support browser-native image decoding (WebP) via `createImageBitmap`.
-- Resize Strategy: `devicePixelContentBoxSize` for 1:1 physical pixel mapping on Retina displays.
-
-Performance Guardrails
-- Battery Saver: Use `IntersectionObserver` and `document.hidden` to hard-stop the Render Loop when not visible.
-- Texture Fallback: If textures fail or are disabled, render pure 1x1 white pixel (Pure Clay Mode).
-- Input Stability: Use Manual Delta Calculation (`clientX - lastX`) for Orbit controls to fix iOS/Touch jitter.
-
-5. Scalability Strategy
-- Tier 1 (Low Power): 1x MSAA, Standard Resolution.
-- Tier 2 (High Power): 4x MSAA, 1:1 Device Pixel Ratio.
-- Dynamic Adjustment: Monitor frame time in JS. If FPS < 45, degrade DPR (Dynamic Resolution Scaling).
-
-6. Current Roadmap
-Phase 1: Stabilization (Current)
-- Fix WGPU v24 `limits` and `cache` structs.
-- Implement `BlobUniform` to stop mesh recreation lag.
-- Finalize `load_model_from_bytes` using the low-level parser fix.
-
-Phase 2: Integration
-- Connect JS Date() to Rust `set_environment_light`.
-- Connect Rust `get_blob_screen_position` to HTML UI repulsion logic.
-
-Phase 3: Polish
-- Tune the "Hemispheric" light gradient to perfectly match the CSS background.
-- Add "Soft Shadows" (simulated via darkened ground ambient color).
-
-
-Improving the day time immsersiveness: Add the ability for user to change time of day by typing it in or wheel scroll, after having clicked on the time. This should result in a visual effect that dynamically adjusts the light blob emitted light from different shades of sun to even white moonlight, corresponding to the scrolled time of day. enable fast scroll i.e. several hours can be scrolled with a single scroll interaction.
-
-Improving Layer structure and navigation immersiveness: 
-The “Layers“
-
-The Layers are the spaces that can be moved between via navigation buttons. For now we have front and back layer, so we need a front and back button that allows the user to focus on either Layer. The 3D scene is always visible, just the HTML elements in the Foreground change.
-	•	Back Layer (HTML): The background is dim, but the mouse "reveals" the content because the UI elements subtly glow at their border when mouse passes near them. Besides text, i want a basic 3d „cube“ / „box“ layout in CSS that gives the impression of depth.
-	•	Middle Layer (3D): this is the performance and rendering quality optimized 3d scene that is always visible and, woven into the html + css UI, by being „in the background“ of the Front Layer but possible to break through to the Back layer as well. It also needs one UI element that is permanently in the „Front Layer“: The navigation buttons.
-	•	Front Layer (HTML): UI elements have a subtle "glow" border when the mouse passes near them. They disappear when the user moves from front Layer to Back Layer.
-
-The „Mouse emitting light" / „Dynamic Light“ (Cross-Layer Lighting)
-The mouse cursor acts as a light source that affects both layers simultaneously. We can create a css class „glow-ui“.
-	•	Back Layer (HTML): Use a CSS mask-image or radial-gradient on the text/background that follows the mouse. The background is dim, but the mouse "reveals" the content because the UI elements subtly glow at their border when mouse passes near them
-	•	Middle Layer (3D): The 3D cursor light (which you already implemented!) illuminates the clay model - we dont change anything
-	•	Front Layer (HTML): UI elements have a subtle "glow" border when the mouse passes near them.
-	•	The Effect: It feels like the user is holding a torch in a dark room, illuminating 3D objects and 2D text in the same physical space.
-
-The „Fake" Glass Refraction 
-Real-time refraction of HTML elements behind a canvas is computationally extremely heavy (requires copying the DOM to a texture).
-	•	The Cheat: Create a CSS Gradient background. Pass the exact same gradient colors and direction to your WebGPU shader.
-	•	The Shader: In fs_model, render the object as "glass" (high transmission). Instead of refracting a texture, you refract the procedural gradient.
-	•	The Result: It looks like the 3D object is refracting the background, even though it's just math.
+10. Mobile-specific rendering
+    - Reduce grid complexity on mobile.
+    - Lower texture resolution on mobile.
+    - Adaptive quality.
