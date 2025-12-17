@@ -8,15 +8,15 @@ import Renderer from '@/components/Renderer.astro';
     <div id="layer-persistent">
       <nav class="global-controls" aria-label="Global Controls">
         <div class="layer-nav">
-          <button id="nav-front" class="global-toggle active" aria-pressed="true">Front Focus</button>
-          <button id="nav-back" class="global-toggle" aria-pressed="false">Back Focus</button>
+          <button id="nav-front" class="global-toggle active" aria-pressed="true">Front</button>
+          <button id="nav-back" class="global-toggle" aria-pressed="false">Back</button>
         </div>
         
         <div class="divider"></div>
 
-        <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme" aria-pressed="false">Toggle Theme</button>
-        <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model" aria-pressed="false">Switch Model</button>
-        <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect" aria-pressed="false">Toggle Light Blob</button>
+        <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme" aria-pressed="false">Theme</button>
+        <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model" aria-pressed="false">Model</button>
+        <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect" aria-pressed="false">Light</button>
         
         <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24" aria-valuenow="12" aria-valuetext="12:00 UTC">
           <span class="time-label">TIME</span>
@@ -352,32 +352,39 @@ import Renderer from '@/components/Renderer.astro';
   /* --- Navigation Controls --- */
   .global-controls {
     position: fixed;
-    top: 1rem;
-    right: 1rem;
+    top: 0;
+    left: 0;
+    width: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap; /* Force single line */
+    justify-content: center;
+    align-items: center;
     gap: 0.5rem;
     pointer-events: auto;
-    border-radius: 8px;
+    /* border-radius: 0; */
     padding: 0.5rem;
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(20px);
+    z-index: 1000;
     /* Box shadow always present, intensity controlled by CSS var */
     --panel-glow: 0;
     box-shadow: 0 0 calc(30px * var(--panel-glow)) rgba(240, 245, 255, var(--panel-glow));
     transition: opacity 0.3s ease, transform 0.3s ease;
+    overflow-x: auto; /* Allow scroll on very small screens if needed */
   }
 
   .layer-nav {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0;
   }
 
   .divider {
-    height: 1px;
+    width: 1px;
+    height: 20px;
     background: rgba(255, 255, 255, 0.1);
-    margin: 0.2rem 0;
+    margin: 0 0.2rem;
   }
 
   .global-toggle {
@@ -415,16 +422,24 @@ import Renderer from '@/components/Renderer.astro';
   /* Mobile Improvements */
   @media (max-width: 768px) {
     .global-controls {
-       /* Move to bottom right on mobile for better reachability */
-       top: auto;
-       bottom: 5rem; /* Above audio player */
-       right: 1rem;
-       max-width: 260px;
+       /* Ensure it stays at top */
+       top: 0;
+       bottom: auto;
+       right: 0;
+       left: 0;
+       max-width: 100%;
+       justify-content: space-evenly;
+       padding: 0.25rem;
     }
     
     .global-toggle {
-        padding: 0.8em 1.2em; /* Larger touch targets */
-        font-size: 1rem;
+        padding: 0.5em 0.8em; /* Slightly smaller padding to fit all */
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+    
+    .time-control .time-label {
+        display: none; /* Hide label to save space */
     }
   }
 

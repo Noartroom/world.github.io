@@ -1,0 +1,210 @@
+Product Requirements Document: Comprehensive Codebase Optimization Review
+================================================================================
+
+Project: Immersive 3D Astro Website - Performance & Mobile Optimization Review
+Goal: Conduct a thorough, systematic review of the entire codebase to identify optimization opportunities for mobile devices, performance improvements, and accessibility enhancements while preserving all existing SOTA functionality.
+
+Context:
+- Stable website with WebGPU-based 3D renderer (Rust/WASM)
+- Existing mobile optimizations (device detection, fallback modes, dynamic DPR scaling)
+- Service worker with caching strategies
+- Accessibility improvements already implemented
+- Need comprehensive audit without breaking changes
+
+================================================================================
+PHASE 1: CODEBASE ANALYSIS & AUDIT
+================================================================================
+
+1. Architecture Review
+   - Analyze current component structure and data flow
+   - Review state management patterns (Nano Stores usage)
+   - Identify potential memory leaks or resource management issues
+   - Document current performance characteristics and bottlenecks
+   - Review Rust/WASM integration patterns and optimization opportunities
+
+2. Dependency Audit
+   - Review all npm dependencies for unused packages
+   - Check for outdated dependencies with security/performance improvements
+   - Analyze Rust dependencies in cargo.toml for unused crates
+   - Identify opportunities for tree-shaking and bundle size reduction
+   - Review WebGPU/WGPU version compatibility and optimization flags
+
+3. Build System Analysis
+   - Review Astro build configuration for optimization opportunities
+   - Analyze WASM build flags and optimization levels
+   - Check for missing compression (gzip/brotli) configurations
+   - Review asset optimization (images, models, shaders)
+   - Analyze bundle splitting and code splitting strategies
+
+================================================================================
+PHASE 2: PERFORMANCE OPTIMIZATION OPPORTUNITIES
+================================================================================
+
+4. JavaScript/TypeScript Performance
+   - Analyze render loop efficiency and frame budget usage
+   - Review event handler performance (debouncing, throttling opportunities)
+   - Identify unnecessary re-renders or DOM queries
+   - Review memory allocation patterns in hot paths
+   - Analyze service worker message passing efficiency
+   - Review store subscription patterns for optimization
+
+5. Rust/WASM Performance
+   - Analyze WASM binary size and optimization opportunities
+   - Review GPU resource management (textures, buffers, pipelines)
+   - Identify opportunities for reducing WASM-JS boundary crossings
+   - Review shader compilation and caching strategies
+   - Analyze mesh loading and processing efficiency
+   - Review uniform buffer updates and batching opportunities
+   - Check for unnecessary allocations in render loop
+
+6. Rendering Performance
+   - Review MSAA settings and mobile-specific optimizations
+   - Analyze dynamic DPR scaling algorithm effectiveness
+   - Review texture resolution and mipmap strategies
+   - Identify opportunities for LOD (Level of Detail) systems
+   - Review culling strategies (frustum, occlusion)
+   - Analyze shader complexity and optimization opportunities
+   - Review render target and pass optimization
+
+7. Network Performance
+   - Review GLB model compression and optimization
+   - Analyze asset loading strategies (preloading, lazy loading)
+   - Review service worker caching strategies effectiveness
+   - Identify opportunities for progressive loading
+   - Analyze network request patterns and batching
+   - Review CDN and asset delivery optimization
+
+================================================================================
+PHASE 3: MOBILE-SPECIFIC OPTIMIZATIONS
+================================================================================
+
+8. Mobile Rendering Optimizations
+   - Review current mobile detection and fallback strategies
+   - Analyze mobile-specific MSAA and quality settings
+   - Review touch input handling performance
+   - Identify opportunities for mobile-specific shader variants
+   - Analyze battery consumption patterns
+   - Review thermal throttling detection and mitigation
+
+9. Mobile UX Enhancements
+   - Review touch target sizes and interaction zones
+   - Analyze gesture handling and multi-touch performance
+   - Review mobile layout and responsive design
+   - Identify opportunities for mobile-specific UI patterns
+   - Review mobile keyboard and input handling
+   - Analyze viewport and safe area handling
+
+10. Mobile Network Optimization
+    - Review mobile data usage patterns
+    - Analyze asset size optimization for mobile networks
+    - Review service worker strategies for mobile connectivity
+    - Identify opportunities for offline-first improvements
+    - Analyze progressive enhancement strategies
+
+================================================================================
+PHASE 4: ACCESSIBILITY & INCLUSIVITY
+================================================================================
+
+11. Accessibility Audit
+    - Review ARIA implementation completeness
+    - Analyze keyboard navigation patterns
+    - Review screen reader compatibility
+    - Identify opportunities for focus management
+    - Review color contrast and visual accessibility
+    - Analyze motion preferences (prefers-reduced-motion) implementation
+
+12. Performance Accessibility
+    - Review performance impact on assistive technologies
+    - Analyze loading states and progress indicators
+    - Review error handling and user feedback
+    - Identify opportunities for alternative interaction methods
+    - Review text alternatives for visual content
+
+================================================================================
+PHASE 5: MEMORY & RESOURCE MANAGEMENT
+================================================================================
+
+13. Memory Optimization
+    - Analyze memory usage patterns and leaks
+    - Review resource cleanup and disposal patterns
+    - Identify opportunities for object pooling
+    - Review texture and buffer lifecycle management
+    - Analyze WASM memory growth patterns
+    - Review garbage collection pressure points
+
+14. Resource Loading
+    - Review asset loading and unloading strategies
+    - Analyze texture memory management
+    - Review model caching and eviction strategies
+    - Identify opportunities for resource prioritization
+    - Review lazy loading implementation
+
+================================================================================
+PHASE 6: CODE QUALITY & MAINTAINABILITY
+================================================================================
+
+15. Code Organization
+    - Review code structure and modularity
+    - Identify opportunities for code reuse
+    - Review TypeScript type safety improvements
+    - Analyze error handling patterns
+    - Review documentation completeness
+
+16. Testing & Monitoring
+    - Review performance monitoring implementation
+    - Identify opportunities for performance metrics
+    - Review error tracking and logging
+    - Analyze debugging tools and development experience
+
+================================================================================
+PHASE 7: SECURITY & BEST PRACTICES
+================================================================================
+
+17. Security Review
+    - Review dependency security vulnerabilities
+    - Analyze WASM security considerations
+    - Review service worker security patterns
+    - Identify opportunities for CSP improvements
+
+18. Best Practices
+    - Review WebGPU best practices compliance
+    - Analyze modern JavaScript/TypeScript patterns
+    - Review Rust/WASM best practices
+    - Identify opportunities for modern web APIs
+
+================================================================================
+DELIVERABLES
+================================================================================
+
+For each phase, provide:
+1. Detailed analysis of current state
+2. Specific optimization opportunities with impact assessment
+3. Implementation recommendations (without code changes)
+4. Risk assessment for each optimization
+5. Priority ranking (High/Medium/Low)
+6. Estimated performance impact where measurable
+
+================================================================================
+CONSTRAINTS
+================================================================================
+
+- NO CODE CHANGES during review phase
+- Preserve all existing functionality
+- Maintain SOTA implementation quality
+- Focus on measurable improvements
+- Consider mobile-first approach
+- Ensure accessibility compliance
+- Maintain code readability and maintainability
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+- Comprehensive audit covering all codebase areas
+- Actionable recommendations with clear priorities
+- Performance improvement opportunities identified
+- Mobile optimization strategy defined
+- Accessibility gaps identified and prioritized
+- Resource management improvements documented
+- Clear implementation roadmap for optimization work
+
