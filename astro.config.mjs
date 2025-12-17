@@ -28,7 +28,7 @@ const wasmPlugin = {
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://world.github.io',
+  site: 'https://noartroom.github.io',
   vite: {
     plugins: [wasmPlugin],
     resolve: {
