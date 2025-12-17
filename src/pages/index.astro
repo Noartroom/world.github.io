@@ -288,6 +288,50 @@ import Renderer from '@/components/Renderer.astro';
   resetIdleTimer();
 </script>
 
+<script>
+  import { activeLayer } from '../lib/stores/sceneStore';
+
+  // --- Swipe Gesture for Layer Switching (Mobile) ---
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  window.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+      touchStartTime = Date.now();
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      const duration = Date.now() - touchStartTime;
+      
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // Thresholds
+      const minSwipeDistance = 50;
+      const maxSwipeDuration = 400; // ms - "Flick" detection
+      
+      // Check if it's a flick/swipe and vertical
+      if (duration < maxSwipeDuration && Math.abs(deltaY) > minSwipeDistance && Math.abs(deltaY) > Math.abs(deltaX)) {
+          // Prevent if interacting with time control or buttons
+          if (e.target instanceof Element && (e.target.closest('.time-control') || e.target.closest('button'))) {
+              return;
+          }
+
+          if (deltaY < 0) {
+              // Swipe UP -> Reveal Back / Go to Back Focus
+              activeLayer.set('back');
+          } else {
+              // Swipe DOWN -> Reveal Front / Go to Front Focus
+              activeLayer.set('front');
+          }
+      }
+  }, { passive: true });
+</script>
+
 <style>
   main {
     width: 100vw;
@@ -441,6 +485,11 @@ import Renderer from '@/components/Renderer.astro';
     .time-control .time-label {
         display: none; /* Hide label to save space */
     }
+
+    /* Hide Front/Back buttons on mobile, replaced by swipe gestures */
+    .layer-nav, .divider {
+        display: none;
+    }
   }
 
   .time-control {
@@ -497,14 +546,28 @@ import Renderer from '@/components/Renderer.astro';
   }
 
   .cube-container {
-    width: 80vmin;
-    height: 80vmin;
+    /* Define Box Dimensions (Default: Cube) */
+    --box-w: 80vmin;
+    --box-h: 80vmin;
+    --box-d: 80vmin;
+
+    width: var(--box-w);
+    height: var(--box-h);
     perspective: 1000px;
     margin: 0;
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     pointer-events: none;
+  }
+
+  /* Mobile Adjustment: Rectangular Box */
+  @media (max-width: 768px) {
+    .cube-container {
+        --box-w: 85vw;
+        --box-h: 60vh;
+        --box-d: 60vw;
+    }
   }
 
   .cube {
@@ -517,8 +580,6 @@ import Renderer from '@/components/Renderer.astro';
 
   .face {
     position: absolute;
-    width: 80vmin;
-    height: 80vmin;
     background: transparent;
     border: 2px solid rgba(100, 200, 255, 0.4); /* Thicker and brighter */
     display: flex;
@@ -538,10 +599,19 @@ import Renderer from '@/components/Renderer.astro';
     box-shadow: 0 0 10px rgba(0, 80, 160, 0.1), inset 0 0 20px rgba(0, 80, 160, 0.05);
   }
 
-  .front  { transform: rotateY(0deg) translateZ(40vmin); }
-  .back   { transform: rotateY(180deg) translateZ(40vmin); }
-  .right  { transform: rotateY(90deg) translateZ(40vmin); }
-  .left   { transform: rotateY(-90deg) translateZ(40vmin); }
-  .top    { transform: rotateX(90deg) translateZ(40vmin); }
-  .bottom { transform: rotateX(-90deg) translateZ(40vmin); }
+  /* Face Dimensions & Transforms using variables */
+  /* Front/Back: Width x Height */
+  .front, .back { width: var(--box-w); height: var(--box-h); }
+  .front  { transform: rotateY(0deg) translateZ(calc(var(--box-d) / 2)); }
+  .back   { transform: rotateY(180deg) translateZ(calc(var(--box-d) / 2)); }
+  
+  /* Right/Left: Depth x Height */
+  .right, .left { width: var(--box-d); height: var(--box-h); }
+  .right  { transform: rotateY(90deg) translateZ(calc(var(--box-w) / 2)); }
+  .left   { transform: rotateY(-90deg) translateZ(calc(var(--box-w) / 2)); }
+  
+  /* Top/Bottom: Width x Depth */
+  .top, .bottom { width: var(--box-w); height: var(--box-d); }
+  .top    { transform: rotateX(90deg) translateZ(calc(var(--box-h) / 2)); }
+  .bottom { transform: rotateX(-90deg) translateZ(calc(var(--box-h) / 2)); }
 </style>

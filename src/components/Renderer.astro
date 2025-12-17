@@ -323,6 +323,18 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
              isDraggingBlob = false;
              hasSpawnedSinceActive = false; // Reset the flag so it can be spawned again if re-enabled
          }
+         // Mobile Fix: Spawn immediately at center when toggled ON
+         else if (newValue && state?.spawnBlob) {
+             const isMobile = window.innerWidth < 768;
+             if (isMobile && !hasSpawnedSinceActive) {
+                 if (canvas) {
+                     const rect = canvas.getBoundingClientRect();
+                     // Spawn at center
+                     state.spawnBlob(rect.width / 2, rect.height / 2, rect.width, rect.height);
+                     hasSpawnedSinceActive = true;
+                 }
+             }
+         }
       });
 
       // Initialize Blob State (Ensure it syncs with store, especially if default is false)
