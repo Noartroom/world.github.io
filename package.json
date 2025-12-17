@@ -22,6 +22,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "wasm-pack": "^0.13.1"
   }
 }
