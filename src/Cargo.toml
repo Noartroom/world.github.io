@@ -58,7 +58,7 @@ default = ["console_error_panic_hook"]
 
 [profile.release]
 opt-level = "z"     # Optimize for size (critical for web load times)
-lto = true          # Link Time Optimization (cross-module inlining)
+lto = thin          # Link Time Optimization (cross-module inlining)
 codegen-units = 1   # Slower build, faster binary
 panic = "abort"     # Remove panic unwinding strings
 strip = true        # Remove symbols
