@@ -29,7 +29,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
 <script>
   // @ts-ignore
-  import init, { startRenderer } from '../lib/pkg/model_renderer.js'; /* adjust path for prod/dev */
+  import init, { startRenderer } from '/pkg/model_renderer.js'; /* adjust path for prod/dev */
   import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
