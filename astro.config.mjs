@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import AstroPWA from '@vite-pwa/astro';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,4 +38,16 @@ export default defineConfig({
       },
     },
   },
+  integrations: [
+    AstroPWA({
+      strategy: 'injectManifest', // <--- KEEPS YOUR CUSTOM LOGIC
+      srcDir: 'public',
+      filename: 'sw.js', // Your existing file
+      registerType: 'autoUpdate',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,glb,wasm}'],
+        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
+      }
+    })
+  ]
 });
