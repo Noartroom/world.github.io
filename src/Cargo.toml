@@ -55,3 +55,13 @@ bytemuck = { version = "1.16.0", features = ["derive"] }
 
 [features]
 default = ["console_error_panic_hook"]
+
+[profile.release]
+opt-level = "z"     # Optimize for size (critical for web load times)
+lto = true          # Link Time Optimization (cross-module inlining)
+codegen-units = 1   # Slower build, faster binary
+panic = "abort"     # Remove panic unwinding strings
+strip = true        # Remove symbols
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false      # try updating your wasm-bindgen version in Cargo.toml (currently 0.2.92) or installing a newer version of wasm-pack to see if that resolves the error later.

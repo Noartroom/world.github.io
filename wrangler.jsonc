@@ -1,0 +1,7 @@
+{
+  "name": "3D",
+  "compatibility_date": "2025-12-17", // Update to the day you deploy
+  "assets": {
+    "directory": "./dist"
+  }
+}

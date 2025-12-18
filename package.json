@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "vite-tsconfig-paths": "^5.1.4",
-    "wasm-pack": "^0.13.1"
+    "wasm-pack": "^0.13.1",
+    "wrangler": "^4.55.0"
   }
 }

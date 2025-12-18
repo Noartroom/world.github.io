@@ -1,0 +1,4 @@
+[target.wasm32-unknown-unknown]
+# rustflags = ["-C", "target-feature=+bulk-memory,+mutable-globals"]
+# rustflags = ["-C", "target-feature=+enable-bulk-memory,+mutable-globals,+reference-types"]
+# rustflags = ["-C", "target-feature=+enable-bulk-memory"]
