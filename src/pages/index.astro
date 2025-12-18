@@ -7,9 +7,16 @@ import Renderer from '@/components/Renderer.astro';
     <!-- Persistent UI: Always on top (Buttons) -->
     <div id="layer-persistent">
       <nav class="global-controls" aria-label="Global Controls">
-        <div class="layer-nav">
-          <button id="nav-front" class="global-toggle active" aria-pressed="true">Front</button>
-          <button id="nav-back" class="global-toggle" aria-pressed="false">Back</button>
+        <div class="layer-nav" id="layer-nav-container">
+          <button id="nav-layer-up" class="global-toggle nav-arrow" aria-label="Front Layer">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+          </button>
+          <div class="layer-overview-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16zM11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74z"/></svg>
+          </div>
+          <button id="nav-layer-down" class="global-toggle nav-arrow" aria-label="Back Layer">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+          </button>
         </div>
 
         <!-- Layer Indicator -->
@@ -127,11 +134,11 @@ import Renderer from '@/components/Renderer.astro';
   });
 
   // --- Layer Navigation Logic ---
-  const navFront = document.getElementById('nav-front');
-  const navBack = document.getElementById('nav-back');
+  const navUp = document.getElementById('nav-layer-up');
+  const navDown = document.getElementById('nav-layer-down');
 
-  navFront?.addEventListener('click', () => activeLayer.set('front'));
-  navBack?.addEventListener('click', () => activeLayer.set('back'));
+  navUp?.addEventListener('click', () => activeLayer.set('front'));
+  navDown?.addEventListener('click', () => activeLayer.set('back'));
 
   // Subscribe to layer changes
   activeLayer.subscribe(layer => {
@@ -142,12 +149,12 @@ import Renderer from '@/components/Renderer.astro';
     document.body.classList.toggle('layer-front-active', !isBack);
 
     // Update button states
-    if (navFront && navBack) {
-      navFront.classList.toggle('active', !isBack);
-      navFront.setAttribute('aria-pressed', (!isBack).toString());
+    if (navUp && navDown) {
+      navUp.classList.toggle('active', !isBack);
+      navUp.setAttribute('aria-pressed', (!isBack).toString());
       
-      navBack.classList.toggle('active', isBack);
-      navBack.setAttribute('aria-pressed', isBack.toString());
+      navDown.classList.toggle('active', isBack);
+      navDown.setAttribute('aria-pressed', isBack.toString());
     }
 
     // Update Indicator
@@ -319,44 +326,45 @@ import Renderer from '@/components/Renderer.astro';
   import { activeLayer } from '../lib/stores/sceneStore';
 
   // --- Swipe Gesture for Layer Switching (Mobile) ---
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchStartTime = 0;
+  const swipeZone = document.getElementById('layer-nav-container');
 
-  window.addEventListener('touchstart', (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
-      touchStartTime = Date.now();
-  }, { passive: true });
+  if (swipeZone) {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let touchStartTime = 0;
 
-  window.addEventListener('touchend', (e) => {
-      const touchEndX = e.changedTouches[0].screenX;
-      const touchEndY = e.changedTouches[0].screenY;
-      const duration = Date.now() - touchStartTime;
-      
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      
-      // Thresholds
-      const minSwipeDistance = 50;
-      const maxSwipeDuration = 400; // ms - "Flick" detection
-      
-      // Check if it's a flick/swipe and vertical
-      if (duration < maxSwipeDuration && Math.abs(deltaY) > minSwipeDistance && Math.abs(deltaY) > Math.abs(deltaX)) {
-          // Prevent if interacting with time control or buttons
-          if (e.target instanceof Element && (e.target.closest('.time-control') || e.target.closest('button'))) {
-              return;
+      swipeZone.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+          touchStartY = e.changedTouches[0].screenY;
+          touchStartTime = Date.now();
+      }, { passive: true });
+
+      swipeZone.addEventListener('touchend', (e) => {
+          const touchEndX = e.changedTouches[0].screenX;
+          const touchEndY = e.changedTouches[0].screenY;
+          const duration = Date.now() - touchStartTime;
+          
+          const deltaX = touchEndX - touchStartX;
+          const deltaY = touchEndY - touchStartY;
+          
+          // Thresholds
+          const minSwipeDistance = 30;
+          const maxSwipeDuration = 500;
+          
+          // Check if it's a flick/swipe and vertical
+          if (duration < maxSwipeDuration && Math.abs(deltaY) > minSwipeDistance) {
+              // Don't block button clicks, but allow swipes over them if movement occurred
+              
+              if (deltaY < 0) {
+                  // Swipe UP -> Reveal Back
+                  activeLayer.set('back');
+              } else {
+                  // Swipe DOWN -> Reveal Front
+                  activeLayer.set('front');
+              }
           }
-
-          if (deltaY < 0) {
-              // Swipe UP -> Reveal Back / Go to Back Focus
-              activeLayer.set('back');
-          } else {
-              // Swipe DOWN -> Reveal Front / Go to Front Focus
-              activeLayer.set('front');
-          }
-      }
-  }, { passive: true });
+      }, { passive: true });
+  }
 </script>
 
 <style>
@@ -449,6 +457,22 @@ import Renderer from '@/components/Renderer.astro';
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0;
+    align-items: center;
+  }
+
+  .nav-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25em;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+  }
+
+  .layer-overview-icon {
+    display: none; /* Hidden on desktop */
+    color: rgba(255, 255, 255, 0.7);
   }
 
   /* Layer Indicator */
@@ -572,9 +596,34 @@ import Renderer from '@/components/Renderer.astro';
         display: none; /* Hide label to save space */
     }
 
-    /* Hide Front/Back buttons on mobile, replaced by swipe gestures */
+    /* Reposition Layer Nav for Mobile */
     .layer-nav {
-        display: none;
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        flex-direction: column;
+        gap: 1.5rem; /* Space out the arrows */
+        background: rgba(0, 0, 0, 0.2); /* Slight background for the zone */
+        backdrop-filter: blur(5px);
+        padding: 10rem 3rem 10rem 6rem; /* Very generous hit area for ease of use */
+        border-radius: 30px 0 0 30px;
+        z-index: 2000;
+        /* Ensure it's reachable */
+        pointer-events: auto;
+        touch-action: none; /* Prevent browser scrolling */
+    }
+
+    .layer-overview-icon {
+        display: block;
+        opacity: 0.8;
+    }
+
+    .nav-arrow {
+        width: 48px;
+        height: 48px;
+        background: rgba(0, 0, 0, 0.5); /* More visible on mobile */
+        border-radius: 50%;
     }
     
     /* Keep divider if needed, or hide */
