@@ -1,6 +1,6 @@
 // Service Worker for Immersive 3D Astro
 // Cache Name: Versioned to force update on change
-const CACHE_NAME = 'immersive-3d-v7';
+const CACHE_NAME = 'immersive-3d-v8'; // TODO: THis should be updated dynamically e.g. on each file change. currently i have to increase this manually.
 
 // Files to pre-cache immediately so the "Skeleton" works offline
 const STATIC_ASSETS = [

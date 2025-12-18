@@ -62,6 +62,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   let frameCount = 0;
   let currentDpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
   let targetDpr = currentDpr;
+  let drsCooldown = 0; // Prevent rapid changes
+  let lastWidth = 0;
+  let lastHeight = 0;
 
   // DOM Elemente
   const canvas: HTMLCanvasElement | null = CANVAS_ID ? document.getElementById(CANVAS_ID) as HTMLCanvasElement : null;
@@ -112,17 +115,22 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       const fps = frameCount;
       // console.log(`FPS: ${fps}, DPR: ${currentDpr.toFixed(2)}`);
       
-      // Dynamic Resolution Scaling (Tiered)
-      // Wenn FPS unter 45 fallen, reduziere Auflösung (min 0.5)
-      // LOCK DRS if currently transitioning layers (prevents blurry UI during switch)
-      if (!isTransitioning && fps < 45 && currentDpr > 0.5) {
-         targetDpr = Math.max(0.5, currentDpr - 0.25);
-         triggerResize(); // Trigger resize with new DPR
-      }
-      // Wenn FPS stabil bei 60 sind, versuche Qualität zu erhöhen (bis native DPR)
-      else if (fps >= 58 && currentDpr < (window.devicePixelRatio || 1)) {
-         targetDpr = Math.min(window.devicePixelRatio || 1, currentDpr + 0.1);
-         triggerResize();
+      if (drsCooldown > 0) {
+          drsCooldown--;
+      } else {
+          // DOWNGRADE: If FPS is bad (< 40), drop quality fast
+          if (fps < 40 && targetDpr > 0.5) {
+              targetDpr = Math.max(0.5, targetDpr - 0.25);
+              triggerResize();
+              drsCooldown = 2; // Wait 2 seconds before checking again
+          }
+          // UPGRADE: Relaxed requirement (50 FPS instead of 58)
+          // This lets devices running "okay" (50-55fps) recover sharpness
+          else if (fps >= 50 && targetDpr < (window.devicePixelRatio || 1)) {
+              targetDpr = Math.min(window.devicePixelRatio || 1, targetDpr + 0.1);
+              triggerResize();
+              drsCooldown = 2; // Wait 2 seconds to let it stabilize
+          }
       }
       
       frameTimer = 0;
@@ -312,8 +320,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       const isMobile = window.innerWidth < 768;
       state = await startRenderer(canvas, isMobile);
       
-      // Hide fallback if it was visible
-      if (fallbackContainer) fallbackContainer.classList.add('hidden');
+      // REMOVED: Fallback hiding moved to after model load
+      // if (fallbackContainer) fallbackContainer.classList.add('hidden');
+      
       if (canvas) canvas.style.display = 'block';
       
       // 1. Theme Sync - Initialize lighting based on current theme
@@ -453,6 +462,11 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       const initialModel = activeModel.get();
       await loadModel(initialModel);
 
+      // Hide fallback ONLY after the model is actually on the GPU
+      if (fallbackContainer) {
+          fallbackContainer.classList.add('hidden');
+      }
+
       // Subscribe to model changes (only after initial load is complete)
       modelUnsub = onSet(activeModel, ({ newValue }) => {
         // Skip if this is the initial value being set or if already loading
@@ -521,18 +535,46 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
   function triggerResize() {
       if (!container || !canvas) return;
-      // Manuelles Update, respektiert targetDpr
-      currentDpr = targetDpr;
+
+      // Mobile Optimization: Cap max DPR to 2.0 (Native 3.0 is wasteful/slow)
+      const maxDpr = window.innerWidth < 768 ? 2.0 : (window.devicePixelRatio || 1);
+      // Ensure we don't exceed the hardware or our cap
+      const allowedDpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+      
+      // Apply our dynamic scaling, but respect the cap
+      currentDpr = Math.min(targetDpr, allowedDpr);
+
       const rect = container.getBoundingClientRect();
-      // Invalidate cached canvas rect when resizing
+
+      // --- BUG FIX: Address Bar Ignore Logic ---
+      // On mobile, if width is same but height changed slightly (URL bar), SKIP resize.
+      const isMobile = window.innerWidth < 768;
+      const widthChanged = rect.width !== lastWidth;
+      const heightDiff = Math.abs(rect.height - lastHeight);
+      
+      // If width hasn't changed, and height change is small (< 150px is typical UI chrome),
+      // it's likely just the address bar. Don't re-render.
+      if (isMobile && !widthChanged && heightDiff < 150 && lastHeight > 0) {
+          return;
+      }
+      // ----------------------------------------
+
+      lastWidth = rect.width;
+      lastHeight = rect.height;
+
+      // Invalidate cached canvas rect
       cachedCanvasRect = null;
+
       const width = Math.max(1, Math.floor(rect.width * currentDpr));
       const height = Math.max(1, Math.floor(rect.height * currentDpr));
       
       if (state && canvas && width > 0 && height > 0) {
-          canvas.width = width;
-          canvas.height = height;
-          state.resize(width, height);
+          // Only resize if dimensions actually changed to avoid flicker
+          if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+              state.resize(width, height);
+          }
       }
   }
 
