@@ -922,5 +922,28 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     background: rgba(255, 255, 255, 0.4);
     transform: scale(1.05);
 }
+
+/* Mobile Landscape Fixes */
+@media (max-height: 600px) and (orientation: landscape) {
+    #fallback-image {
+        width: auto;
+        height: 40vh; /* Constraint by height */
+        max-height: 180px;
+    }
+    
+    .fallback-controls {
+        margin-top: 0.5rem;
+    }
+    
+    .fallback-controls p {
+        margin: 0.25rem 0;
+        font-size: 0.9rem;
+    }
+
+    .force-btn {
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+}
 </style>
 
