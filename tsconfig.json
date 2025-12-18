@@ -6,7 +6,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "/pkg/*": ["src/pkg/*"]
+      "/pkg/*": ["src/lib/pkg/*"]
     },
     "jsx": "react-jsx",
     "jsxImportSource": "react",
@@ -14,7 +14,7 @@
   },
   "include": [
     ".astro/types.d.ts",
-    "src/**/*", "src/pkg",
+    "src/**/*", "src/lib/pkg",
   ],
   "exclude": [
     "dist",
