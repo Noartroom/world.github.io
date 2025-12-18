@@ -633,14 +633,19 @@ import Renderer from '@/components/Renderer.astro';
         flex-direction: column;
         align-items: center;
         gap: 1.5rem; /* Space out the arrows */
-        background: rgba(0, 0, 0, 0.2); /* Slight background for the zone */
-        backdrop-filter: blur(5px);
+        background: transparent;
+        /* backdrop-filter: blur(5px); */
         padding: 10rem 3rem 10rem 6rem; /* Very generous hit area for ease of use */
         border-radius: 30px 0 0 30px;
         z-index: 2000;
         /* Ensure it's reachable */
-        pointer-events: auto;
+        pointer-events: none;
         touch-action: none; /* Prevent browser scrolling */
+    }
+
+    /* Allow interaction with the buttons inside the transparent container */
+    .layer-nav-mobile > * {
+        pointer-events: auto;
     }
 
     .layer-overview-icon {
