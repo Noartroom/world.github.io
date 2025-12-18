@@ -110,7 +110,6 @@ impl Texture {
         is_srgb: bool,
         mipmap_pipeline: Option<&wgpu::RenderPipeline>,
         mipmap_bind_group_layout: Option<&wgpu::BindGroupLayout>,
-        empty_buffer: Option<&wgpu::Buffer>,
     ) -> Self {
         let width = bitmap.width();
         let height = bitmap.height();
@@ -221,7 +220,6 @@ impl Texture {
                     mip_level_count,
                     pipeline,
                     layout,
-                    empty_buffer,
                 );
             }
         }
@@ -475,7 +473,6 @@ pub struct State {
     texture_cache: HashMap<usize, Rc<wgpu::TextureView>>,
     tx: Sender<AssetMessage>,
     rx: Receiver<AssetMessage>,
-    empty_buffer: Rc<wgpu::Buffer>,
 }
 
 impl State {
@@ -537,7 +534,6 @@ impl State {
         mip_level_count: u32,
         mipmap_pipeline: &wgpu::RenderPipeline,
         mipmap_bind_group_layout: &wgpu::BindGroupLayout,
-        empty_buffer: Option<&wgpu::Buffer>,
     ) {
         if mip_level_count <= 1 {
             return;
@@ -625,12 +621,6 @@ impl State {
 
                 render_pass.set_pipeline(mipmap_pipeline);
                 render_pass.set_bind_group(0, &bind_group, &[]);
-                
-                // Fix for WebGL: Bind dummy vertex buffer to slot 0
-                if let Some(buffer) = empty_buffer {
-                    render_pass.set_vertex_buffer(0, buffer.slice(..));
-                }
-                
                 render_pass.draw(0..3, 0..1);
             }
         }
@@ -976,7 +966,6 @@ impl State {
                                                         let mipmap_pipeline_linear = self.mipmap_pipeline_linear.clone();
                                                         let mipmap_pipeline_srgb = self.mipmap_pipeline_srgb.clone();
                                                         let mipmap_layout = self.mipmap_bind_group_layout.clone();
-                                                        let empty_buffer = self.empty_buffer.clone();
                                                         
                                                         wasm_bindgen_futures::spawn_local(async move {
                                                             let a = Array::new();
@@ -989,7 +978,7 @@ impl State {
                                                             if let Ok(bmp_val) = JsFuture::from(w.create_image_bitmap_with_blob(&b).unwrap()).await {
                                                                 let bmp: ImageBitmap = bmp_val.unchecked_into();
                                                                 let pipeline = if is_srgb { &mipmap_pipeline_srgb } else { &mipmap_pipeline_linear };
-                                                                let t = Texture::from_bitmap(&dev, &q, bmp, is_srgb, Some(pipeline), Some(&mipmap_layout), Some(&*empty_buffer));
+                                                                let t = Texture::from_bitmap(&dev, &q, bmp, is_srgb, Some(pipeline), Some(&mipmap_layout));
                                                                 let _ = tx.send(AssetMessage::TextureLoaded { image_index: key, texture_type: type_id, texture: t });
                                                             }
                                                         });
@@ -1911,14 +1900,6 @@ pub async fn start_renderer(canvas: HtmlCanvasElement, is_mobile: bool) -> Resul
         push_constant_ranges: &[],
     });
 
-    // Create empty buffer for mipmap generation (to avoid WebGL warning)
-    let empty_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Empty Buffer"),
-        size: 4,
-        usage: wgpu::BufferUsages::VERTEX,
-        mapped_at_creation: false,
-    });
-
     // Helper function to create mipmap pipelines for different formats
     let create_mipmap_pipeline = |format: wgpu::TextureFormat, label: &str| -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -1980,6 +1961,5 @@ pub async fn start_renderer(canvas: HtmlCanvasElement, is_mobile: bool) -> Resul
         blob_dragging: false,
         blob_drag_depth: 0.0,
         model: None, model_center: Vec3::ZERO, model_extent: 2.0, material_layout, texture_cache: HashMap::new(), tx, rx,
-        empty_buffer: Rc::new(empty_buffer),
     })
 }
