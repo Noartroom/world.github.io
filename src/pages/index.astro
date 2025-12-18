@@ -7,14 +7,11 @@ import Renderer from '@/components/Renderer.astro';
     <!-- Persistent UI: Always on top (Buttons) -->
     <div id="layer-persistent">
       <nav class="global-controls" aria-label="Global Controls">
-        <div class="layer-nav" id="layer-nav-container">
-          <button id="nav-layer-up" class="global-toggle nav-arrow" aria-label="Front Layer">
+        <div class="layer-nav-desktop">
+          <button id="nav-layer-up-desktop" class="global-toggle nav-arrow" aria-label="Front Layer">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
           </button>
-          <div class="layer-overview-icon">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16zM11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74z"/></svg>
-          </div>
-          <button id="nav-layer-down" class="global-toggle nav-arrow" aria-label="Back Layer">
+          <button id="nav-layer-down-desktop" class="global-toggle nav-arrow" aria-label="Back Layer">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
           </button>
         </div>
@@ -39,6 +36,19 @@ import Renderer from '@/components/Renderer.astro';
           <span class="time-value">12:00</span>
         </div>
       </nav>
+
+      <!-- Mobile Nav (Placed outside global-controls to avoid containing block issues) -->
+      <div class="layer-nav-mobile" id="layer-nav-mobile-container">
+        <button id="nav-layer-up-mobile" class="global-toggle nav-arrow" aria-label="Front Layer">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+        </button>
+        <div class="layer-overview-icon">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16zM11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74z"/></svg>
+        </div>
+        <button id="nav-layer-down-mobile" class="global-toggle nav-arrow" aria-label="Back Layer">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Back Layer: Content behind the 3D scene (Moves to front when active) -->
@@ -134,11 +144,18 @@ import Renderer from '@/components/Renderer.astro';
   });
 
   // --- Layer Navigation Logic ---
-  const navUp = document.getElementById('nav-layer-up');
-  const navDown = document.getElementById('nav-layer-down');
+  const navUpDesktop = document.getElementById('nav-layer-up-desktop');
+  const navDownDesktop = document.getElementById('nav-layer-down-desktop');
+  const navUpMobile = document.getElementById('nav-layer-up-mobile');
+  const navDownMobile = document.getElementById('nav-layer-down-mobile');
 
-  navUp?.addEventListener('click', () => activeLayer.set('front'));
-  navDown?.addEventListener('click', () => activeLayer.set('back'));
+  const setFront = () => activeLayer.set('front');
+  const setBack = () => activeLayer.set('back');
+
+  navUpDesktop?.addEventListener('click', setFront);
+  navDownDesktop?.addEventListener('click', setBack);
+  navUpMobile?.addEventListener('click', setFront);
+  navDownMobile?.addEventListener('click', setBack);
 
   // Subscribe to layer changes
   activeLayer.subscribe(layer => {
@@ -149,13 +166,18 @@ import Renderer from '@/components/Renderer.astro';
     document.body.classList.toggle('layer-front-active', !isBack);
 
     // Update button states
-    if (navUp && navDown) {
-      navUp.classList.toggle('active', !isBack);
-      navUp.setAttribute('aria-pressed', (!isBack).toString());
-      
-      navDown.classList.toggle('active', isBack);
-      navDown.setAttribute('aria-pressed', isBack.toString());
-    }
+    const updateButtons = (upBtn: HTMLElement | null, downBtn: HTMLElement | null) => {
+      if (upBtn && downBtn) {
+        upBtn.classList.toggle('active', !isBack);
+        upBtn.setAttribute('aria-pressed', (!isBack).toString());
+        
+        downBtn.classList.toggle('active', isBack);
+        downBtn.setAttribute('aria-pressed', isBack.toString());
+      }
+    };
+
+    updateButtons(navUpDesktop, navDownDesktop);
+    updateButtons(navUpMobile, navDownMobile);
 
     // Update Indicator
     const indicator = document.getElementById('layer-indicator');
@@ -326,7 +348,7 @@ import Renderer from '@/components/Renderer.astro';
   import { activeLayer } from '../lib/stores/sceneStore';
 
   // --- Swipe Gesture for Layer Switching (Mobile) ---
-  const swipeZone = document.getElementById('layer-nav-container');
+  const swipeZone = document.getElementById('layer-nav-mobile-container');
 
   if (swipeZone) {
       let touchStartX = 0;
@@ -453,11 +475,16 @@ import Renderer from '@/components/Renderer.astro';
     overflow-x: auto; /* Allow scroll on very small screens if needed */
   }
 
-  .layer-nav {
+  .layer-nav-desktop {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0;
     align-items: center;
+  }
+
+  /* Default state for mobile nav: Hidden on Desktop */
+  .layer-nav-mobile {
+    display: none;
   }
 
   .nav-arrow {
@@ -468,11 +495,6 @@ import Renderer from '@/components/Renderer.astro';
     border-radius: 50%;
     width: 32px;
     height: 32px;
-  }
-
-  .layer-overview-icon {
-    display: none; /* Hidden on desktop */
-    color: rgba(255, 255, 255, 0.7);
   }
 
   /* Layer Indicator */
@@ -596,13 +618,20 @@ import Renderer from '@/components/Renderer.astro';
         display: none; /* Hide label to save space */
     }
 
-    /* Reposition Layer Nav for Mobile */
-    .layer-nav {
+    /* Hide Desktop Nav */
+    .layer-nav-desktop {
+        display: none;
+    }
+
+    /* Show and Position Mobile Nav */
+    .layer-nav-mobile {
+        display: flex;
         position: fixed;
         right: 0;
         top: 50%;
         transform: translateY(-50%);
         flex-direction: column;
+        align-items: center;
         gap: 1.5rem; /* Space out the arrows */
         background: rgba(0, 0, 0, 0.2); /* Slight background for the zone */
         backdrop-filter: blur(5px);
@@ -616,6 +645,7 @@ import Renderer from '@/components/Renderer.astro';
 
     .layer-overview-icon {
         display: block;
+        color: rgba(255, 255, 255, 0.7);
         opacity: 0.8;
     }
 
