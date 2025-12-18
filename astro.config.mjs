@@ -40,9 +40,9 @@ export default defineConfig({
   },
   integrations: [
     AstroPWA({
-      strategy: 'injectManifest', // <--- KEEPS YOUR CUSTOM LOGIC
-      srcDir: 'public',
-      filename: 'sw.js', // Your existing file
+      strategies: 'injectManifest', // <--- KEEPS CUSTOM LOGIC
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,glb,wasm}'],
