@@ -413,7 +413,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
         try {
           if (loader) {
             loader.classList.remove('hidden');
-            loader.textContent = `LOADING ${modelType.toUpperCase()} MODEL...`;
+            loader.textContent = `LOADING ${modelType.toUpperCase()} ...`;
           }
           
           const response = await fetch(modelPath);
@@ -604,6 +604,41 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   // --- Input Handling (Pointer Events) ---
   function setupInput() {
     if (!container || !canvas) return;
+
+    // NEW: Keyboard Navigation for Accessibility
+    canvas.addEventListener('keydown', (e) => {
+        // Prevent scrolling the page when using arrows
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+        }
+
+        if (!state) return;
+        
+        const speed = 5.0; // Adjust sensitivity
+        
+        switch(e.key) {
+            case 'ArrowLeft':
+                state.update_camera(speed, 0, 0); // Rotate Left
+                break;
+            case 'ArrowRight':
+                state.update_camera(-speed, 0, 0); // Rotate Right
+                break;
+            case 'ArrowUp':
+                state.update_camera(0, speed, 0); // Rotate Up
+                break;
+            case 'ArrowDown':
+                state.update_camera(0, -speed, 0); // Rotate Down
+                break;
+            case '+':
+            case '=':
+                state.update_camera(0, 0, -speed); // Zoom In
+                break;
+            case '-':
+            case '_':
+                state.update_camera(0, 0, speed); // Zoom Out
+                break;
+        }
+    });
 
     container.addEventListener('pointerdown', (e: PointerEvent) => {
       if (!state) return;
@@ -810,6 +845,11 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   width: 100%;
   height: 100%;
   outline: none;
+}
+
+#webgpu-canvas:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: -2px;
 }
 
 .loader {

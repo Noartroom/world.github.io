@@ -11,6 +11,15 @@ import Renderer from '@/components/Renderer.astro';
           <button id="nav-front" class="global-toggle active" aria-pressed="true">Front</button>
           <button id="nav-back" class="global-toggle" aria-pressed="false">Back</button>
         </div>
+
+        <!-- Layer Indicator -->
+        <div id="layer-indicator" class="layer-indicator" role="status" aria-label="Current Layer">
+            <div class="layer-icon">
+                <div class="layer-box back-box"></div>
+                <div class="layer-box front-box"></div>
+            </div>
+            <span id="layer-text">L1</span>
+        </div>
         
         <div class="divider"></div>
 
@@ -28,18 +37,18 @@ import Renderer from '@/components/Renderer.astro';
     <!-- Back Layer: Content behind the 3D scene (Moves to front when active) -->
     <div id="layer-back" class="layer">
       <div class="back-content">
-        <h2>The Back Layer</h2>
-        <p class="description-background">This content lives in the next Layer</p>
+      <!--         <h2>Noartroom</h2> -->        
+        <p class="description-background">Layer 1</p>
         <p class="description-foreground">Layer 0</p>
         
         <div class="cube-container">
           <div class="cube">
-            <div class="face front">Front</div>
-            <div class="face back">Back</div>
-            <div class="face right">Right</div>
-            <div class="face left">Left</div>
-            <div class="face top">Top</div>
-            <div class="face bottom">Bottom</div>
+            <div class="face front"></div>
+            <div class="face back"></div>
+            <div class="face right"></div>
+            <div class="face left"></div>
+            <div class="face top"></div>
+            <div class="face bottom"></div>
           </div>
         </div>
       </div>
@@ -52,7 +61,7 @@ import Renderer from '@/components/Renderer.astro';
 
     <!-- Front Layer: Non-persistent UI (Audio Player, Titles) -->
     <div id="layer-front" class="layer">
-      <h1 id="page-title" class="floating-title"></h1> <!-- test -->
+      <h1 id="page-title" class="floating-title">Room 1</h1> <!-- test -->
       
     </div>
   </main>
@@ -139,6 +148,24 @@ import Renderer from '@/components/Renderer.astro';
       
       navBack.classList.toggle('active', isBack);
       navBack.setAttribute('aria-pressed', isBack.toString());
+    }
+
+    // Update Indicator
+    const indicator = document.getElementById('layer-indicator');
+    const layerText = document.getElementById('layer-text');
+    
+    if (indicator && layerText) {
+        if (isBack) {
+            // Back Layer Active (L0)
+            indicator.classList.add('is-back');
+            indicator.classList.remove('is-front');
+            layerText.textContent = 'L0';
+        } else {
+            // Front Layer Active (L1)
+            indicator.classList.add('is-front');
+            indicator.classList.remove('is-back');
+            layerText.textContent = 'L1';
+        }
     }
 
     // Manage Focus/Visibility (Inert)
@@ -424,6 +451,65 @@ import Renderer from '@/components/Renderer.astro';
     margin-bottom: 0;
   }
 
+  /* Layer Indicator */
+  .layer-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-right: 0.5rem;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .layer-icon {
+      position: relative;
+      width: 16px;
+      height: 16px;
+  }
+
+  .layer-box {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      background: rgba(0, 0, 0, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .back-box {
+      top: 0;
+      left: 0;
+      z-index: 1;
+  }
+
+  .front-box {
+      bottom: 0;
+      right: 0;
+      z-index: 2;
+  }
+
+  /* Active States */
+  .layer-indicator.is-back .back-box {
+      background: rgba(88, 166, 255, 0.8);
+      border-color: #fff;
+      z-index: 10;
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
+  }
+
+  .layer-indicator.is-front .front-box {
+      background: rgba(88, 166, 255, 0.8);
+      border-color: #fff;
+      z-index: 10;
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
+  }
+
   .divider {
     width: 1px;
     height: 20px;
@@ -487,7 +573,12 @@ import Renderer from '@/components/Renderer.astro';
     }
 
     /* Hide Front/Back buttons on mobile, replaced by swipe gestures */
-    .layer-nav, .divider {
+    .layer-nav {
+        display: none;
+    }
+    
+    /* Keep divider if needed, or hide */
+    .divider {
         display: none;
     }
   }
