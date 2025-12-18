@@ -37,9 +37,9 @@ import Renderer from '@/components/Renderer.astro';
     <!-- Back Layer: Content behind the 3D scene (Moves to front when active) -->
     <div id="layer-back" class="layer">
       <div class="back-content">
-      <!--         <h2>Noartroom</h2> -->        
-        <p class="description-background">Layer 1</p>
-        <p class="description-foreground">Layer 0</p>
+      <!--         <h2>Noartroom</h2> -->
+        <p class="description-background" transition:name="desc-layer-1">Layer 1</p>
+        <p class="description-foreground" transition:name="desc-layer-0">Layer 0</p>
         
         <div class="cube-container">
           <div class="cube">
@@ -61,7 +61,7 @@ import Renderer from '@/components/Renderer.astro';
 
     <!-- Front Layer: Non-persistent UI (Audio Player, Titles) -->
     <div id="layer-front" class="layer">
-      <h1 id="page-title" class="floating-title">Room 1</h1> <!-- test -->
+      <h1 id="page-title" class="floating-title" transition:name="room-title">Room 1</h1> <!-- test -->
       
     </div>
   </main>
