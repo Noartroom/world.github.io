@@ -30,7 +30,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 <script>
   // @ts-ignore
   import init, { startRenderer } from '/pkg/model_renderer.js'; /* adjust path for prod/dev */
-  import { theme, activeModel, onSet, isBlobActive } from '../lib/stores/sceneStore';
+  import { theme, activeModel, onSet, isBlobActive, activeLayer } from '../lib/stores/sceneStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
 
@@ -48,8 +48,13 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   let blobUnsub: (() => void) | null = null;
   let modelUnsub: (() => void) | null = null;
   let timeUnsub: (() => void) | null = null;
+  let layerUnsub: (() => void) | null = null;
   let isLoadingModel = false; // Prevent concurrent model loads
   let isFallbackMode = false;
+
+  // UI Repulsion Cache
+  let uiCache: any[] = [];
+  let isTransitioning = false;
 
   // Performance Monitoring (SOTA Guardrails)
   let lastFrameTime = performance.now();
@@ -109,7 +114,8 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       
       // Dynamic Resolution Scaling (Tiered)
       // Wenn FPS unter 45 fallen, reduziere Auflösung (min 0.5)
-      if (fps < 45 && currentDpr > 0.5) {
+      // LOCK DRS if currently transitioning layers (prevents blurry UI during switch)
+      if (!isTransitioning && fps < 45 && currentDpr > 0.5) {
          targetDpr = Math.max(0.5, currentDpr - 0.25);
          triggerResize(); // Trigger resize with new DPR
       }
@@ -134,8 +140,8 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
                     const blobPos = state.getBlobScreenPosition();
                     // Check if we got a valid position (array length 2)
                     if (blobPos && blobPos.length === 2) {
-                        const x = blobPos;
-                        const y = blobPos;
+                        const x = blobPos[0];
+                        const y = blobPos[1];
                         // Only apply if inside screen bounds
                         if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
                              // Apply magnetic repulsion to UI elements
@@ -152,8 +158,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
                 resetUIRepulsion();
             }
         }
-
-        state.render();
+        
+        // Pass time in seconds for shader animations
+        state.render(timestamp * 0.001);
       } catch (e) {
         console.error("Render Crash:", e);
         cleanup(); // Notfall-Cleanup
@@ -163,51 +170,65 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     rafId = requestAnimationFrame(renderLoop);
   }
 
-  // --- UI Repulsion Logic ---
+  // --- UI Repulsion Logic (Optimized) ---
+  // READ: Only access DOM on resize or specific triggers
+  function updateUICache() {
+    const elements = document.querySelectorAll('.magnetic-ui');
+    uiCache = Array.from(elements).map(el => {
+      const rect = el.getBoundingClientRect();
+      return {
+        el: el as HTMLElement,
+        // Store center point relative to viewport
+        cx: rect.left + rect.width / 2,
+        cy: rect.top + rect.height / 2
+      };
+    });
+  }
+
+  // WRITE: Runs at 60FPS (Pure Math + GPU Transform)
   function applyUIRepulsion(normalizedX: number, normalizedY: number) {
-      // Find UI elements to repel (buttons, panels)
-      const elements = document.querySelectorAll('.magnetic-ui');
-      
-      elements.forEach(el => {
-          if (!(el instanceof HTMLElement)) return;
-          
-          const rect = el.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          
-          const blobX = normalizedX * window.innerWidth;
-          const blobY = normalizedY * window.innerHeight;
-          
-          const dx = centerX - blobX;
-          const dy = centerY - blobY;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          
-          const maxDist = 150; // Reduced radius to avoid accidental triggers
-          
-          if (dist < maxDist) {
-              // Calculate repulsion force with smooth easing
-              // Power function makes the falloff sharper, so effects only happen when closer
-              const intensity = Math.pow(1 - dist / maxDist, 2);
-              const force = intensity * 80; // Max 40px push
+      if (uiCache.length === 0) return;
+
+      const blobX = normalizedX * window.innerWidth;
+      const blobY = normalizedY * window.innerHeight;
+      const maxDist = 150;
+      const maxDistSq = maxDist * maxDist; // Optimization: Avoid Math.sqrt
+
+      for (let i = 0; i < uiCache.length; i++) {
+          const item = uiCache[i];
+          const dx = item.cx - blobX;
+          const dy = item.cy - blobY;
+          const distSq = dx*dx + dy*dy;
+
+          if (distSq < maxDistSq) {
+              // Normalize distance (0 to 1)
+              const t = 1 - (distSq / maxDistSq);
+              // Smooth falloff (Quadratic)
+              const intensity = t * t;
+              
+              const force = intensity * 80;
               const angle = Math.atan2(dy, dx);
               
-              const moveX = Math.cos(angle) * force;
-              const moveY = Math.sin(angle) * force;
-              
-              el.style.transform = `translate(${moveX}px, ${moveY}px)`;
+              // USE TRANSLATE3D: Promotes element to compositor layer
+              item.el.style.transform = `translate3d(${Math.cos(angle) * force}px, ${Math.sin(angle) * force}px, 0)`;
           } else {
-              el.style.transform = `translate(0px, 0px)`;
+               // Clean up style if needed, but avoid layout reads
+               // Check existing transform string directly to avoid computed style read
+               if (item.el.style.transform) {
+                   item.el.style.transform = '';
+               }
           }
-      });
+      }
   }
 
   function resetUIRepulsion() {
-      const elements = document.querySelectorAll('.magnetic-ui');
-      elements.forEach(el => {
-          if (el instanceof HTMLElement) {
-              el.style.transform = `translate(0px, 0px)`;
-          }
-      });
+      // Use cache for reset too
+      for (let i = 0; i < uiCache.length; i++) {
+         const item = uiCache[i];
+         if (item.el.style.transform) {
+             item.el.style.transform = '';
+         }
+      }
   }
 
   // --- Time-of-Day System ---
@@ -314,6 +335,15 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       // 1.1 Time-of-Day Sync
       timeUnsub = timeStore.subscribe((value: number) => {
          updateTimeOfDay(value);
+      });
+
+      // 1.2 Layer Switch Monitor (Quality Control)
+      layerUnsub = activeLayer.subscribe(() => {
+          isTransitioning = true;
+          // Lock DRS for 600ms (duration of CSS transition)
+          setTimeout(() => {
+              isTransitioning = false;
+          }, 600);
       });
 
       // Handle light blob spawning/despawning ONLY (separate from CSS lighting)
@@ -443,6 +473,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       // 4. Initial Resize erzwingen (Verhindert "Mini-Canvas" Blitz)
       triggerInitialResize();
 
+      // Initial UI Cache calculation
+      setTimeout(updateUICache, 100);
+
       rafId = requestAnimationFrame(renderLoop);
 
     } catch (e: any) {
@@ -513,6 +546,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     resizeObserver = new ResizeObserver(entries => {
       // Bei Container-Größenänderung (z.B. Fenstergröße) immer neu berechnen
       triggerResize();
+      updateUICache(); // Re-calculate cache only when layout actually changes
     });
     if (container) resizeObserver.observe(container);
 
@@ -698,6 +732,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     if (themeUnsub) themeUnsub();
     if (blobUnsub) blobUnsub();
     if (timeUnsub) timeUnsub();
+    if (layerUnsub) layerUnsub();
     
     if (state && state.free) state.free();
     state = null;

@@ -48,6 +48,8 @@ struct SceneUniform {
     camera: CameraUniform,
     light: LightUniform,
     blob: BlobUniform,
+    time: f32,             // 4 bytes
+    _padding: [u32; 3],    // 12 bytes -> Total 16 bytes (Aligns correctly)
 }
 
 // --- Vertex Data ---
@@ -1492,7 +1494,9 @@ impl State {
         result
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, time: f32) {
+        self.scene_uniform.time = time;
+
         // 0. Handle Async Texture Loads
         while let Ok(msg) = self.rx.try_recv() {
             if let Some(model) = &mut self.model {
@@ -1781,6 +1785,8 @@ pub async fn start_renderer(canvas: HtmlCanvasElement, is_mobile: bool) -> Resul
             sky_color: base_sky,
         },
         blob: BlobUniform { position: [0.0; 4], color: [1.0; 4] },
+        time: 0.0,
+        _padding: [0; 3],
     };
     let scene_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Scene Buffer"),
