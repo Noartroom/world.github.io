@@ -8,21 +8,22 @@ import Renderer from '@/components/Renderer.astro';
     <div id="layer-persistent">
       <nav class="global-controls" aria-label="Global Controls">
         <div class="layer-nav-desktop">
-          <button id="nav-layer-up-desktop" class="global-toggle nav-arrow" aria-label="Front Layer">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+          <button id="nav-layer-down-desktop" class="global-toggle nav-arrow desktop-arrow" aria-label="Back Layer">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
           </button>
-          <button id="nav-layer-down-desktop" class="global-toggle nav-arrow" aria-label="Back Layer">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-          </button>
-        </div>
 
-        <!-- Layer Indicator -->
-        <div id="layer-indicator" class="layer-indicator" role="status" aria-label="Current Layer">
-            <div class="layer-icon">
-                <div class="layer-box back-box"></div>
-                <div class="layer-box front-box"></div>
-            </div>
-            <span id="layer-text">L1</span>
+          <!-- Layer Indicator (Sandwiched) -->
+          <div id="layer-indicator-desktop" class="layer-indicator desktop-indicator" role="status" aria-label="Current Layer">
+              <div class="layer-icon">
+                  <div class="layer-box back-box"></div>
+                  <div class="layer-box front-box"></div>
+              </div>
+              <span class="layer-text">L1</span>
+          </div>
+
+          <button id="nav-layer-up-desktop" class="global-toggle nav-arrow desktop-arrow" aria-label="Front Layer">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
         </div>
         
         <div class="divider"></div>
@@ -42,9 +43,16 @@ import Renderer from '@/components/Renderer.astro';
         <button id="nav-layer-up-mobile" class="global-toggle nav-arrow" aria-label="Front Layer">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
         </button>
-        <div class="layer-overview-icon">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16zM11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74z"/></svg>
+        
+        <!-- Mobile Layer Indicator -->
+        <div id="layer-indicator-mobile" class="layer-indicator mobile-indicator" role="status" aria-label="Current Layer">
+            <div class="layer-icon">
+                <div class="layer-box back-box"></div>
+                <div class="layer-box front-box"></div>
+            </div>
+            <span class="layer-text">L1</span>
         </div>
+
         <button id="nav-layer-down-mobile" class="global-toggle nav-arrow" aria-label="Back Layer">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
         </button>
@@ -179,23 +187,28 @@ import Renderer from '@/components/Renderer.astro';
     updateButtons(navUpDesktop, navDownDesktop);
     updateButtons(navUpMobile, navDownMobile);
 
-    // Update Indicator
-    const indicator = document.getElementById('layer-indicator');
-    const layerText = document.getElementById('layer-text');
-    
-    if (indicator && layerText) {
-        if (isBack) {
-            // Back Layer Active (L0)
-            indicator.classList.add('is-back');
-            indicator.classList.remove('is-front');
-            layerText.textContent = 'L0';
-        } else {
-            // Front Layer Active (L1)
-            indicator.classList.add('is-front');
-            indicator.classList.remove('is-back');
-            layerText.textContent = 'L1';
+    // Update Indicators (Desktop & Mobile)
+    const updateIndicator = (id: string) => {
+        const indicator = document.getElementById(id);
+        const layerText = indicator?.querySelector('.layer-text');
+        
+        if (indicator && layerText) {
+            if (isBack) {
+                // Back Layer Active (L0)
+                indicator.classList.add('is-back');
+                indicator.classList.remove('is-front');
+                layerText.textContent = 'L0';
+            } else {
+                // Front Layer Active (L1)
+                indicator.classList.add('is-front');
+                indicator.classList.remove('is-back');
+                layerText.textContent = 'L1';
+            }
         }
-    }
+    };
+
+    updateIndicator('layer-indicator-desktop');
+    updateIndicator('layer-indicator-mobile');
 
     // Manage Focus/Visibility (Inert)
     const layerBack = document.getElementById('layer-back');
@@ -497,12 +510,23 @@ import Renderer from '@/components/Renderer.astro';
     height: 32px;
   }
 
+  /* Desktop Arrow Override: Replace circular shape */
+  .desktop-arrow {
+      border-radius: 8px;
+      width: auto;
+      height: auto;
+      padding: 0.5em 0.8em;
+  }
+  
+  .desktop-indicator {
+      margin: 0 0.5rem;
+  }
+
   /* Layer Indicator */
   .layer-indicator {
       display: flex;
       align-items: center;
       gap: 0.8rem;
-      margin-right: 0.5rem;
       font-family: 'Courier New', monospace;
       font-weight: bold;
       color: rgba(255, 255, 255, 0.9);
