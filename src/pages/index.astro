@@ -274,8 +274,10 @@ import Renderer from '@/components/Renderer.astro';
     const worldBgContainer = document.getElementById('world-background-container');
     // Background: apply a simple, cheap translate to hint movement
     if (worldBgContainer) {
-      const tx = coords.x * -100; // vw shift per room
-      worldBgContainer.style.transform = `translateX(${tx}vw)`;
+      const tx = coords.x * -100; // vw shift per room (horizontal)
+      const ty = coords.y * -100; // vh shift per room (vertical) — extendable
+      const depthScale = 1 + coords.z * 0.02; // subtle depth hint per z step
+      worldBgContainer.style.transform = `translate(${tx}vw, ${ty}vh) scale(${depthScale})`;
     }
 
     // 3. Update Mini Map Active State
