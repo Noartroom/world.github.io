@@ -423,6 +423,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       if (fallbackContainer) {
           fallbackContainer.classList.add('hidden');
       }
+      // Mark body as active 3D mode
+      if (document?.body) {
+          document.body.classList.remove('fallback-mode');
+      }
 
       // Subscribe to model changes (only after initial load is complete)
       modelUnsub = onSet(activeModel, ({ newValue }) => {
@@ -466,6 +470,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       isFallbackMode = true;
       if (canvas) canvas.style.display = 'none';
       if (fallbackContainer) fallbackContainer.classList.remove('hidden');
+      if (document?.body) {
+          document.body.classList.add('fallback-mode');
+      }
 
   }
 
@@ -811,10 +818,11 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     background: transparent;
     z-index: 5;
+    padding-top: 12vh; /* place fallback text/button in upper third */
 }
 
 .fallback-container.hidden {
