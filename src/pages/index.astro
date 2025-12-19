@@ -860,14 +860,18 @@ import Renderer from '@/components/Renderer.astro';
   .face {
     position: absolute;
     background: transparent;
-    border: 1px solid rgba(100, 200, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: none;
     display: flex;
     justify-content: center;
     align-items: center;
-    /* box-shadow: inset 0 0 20px rgba(100, 200, 255, 0.05); */ /* Optional: subtle glow */
     pointer-events: none !important;
     backface-visibility: hidden; /* Fix visual artifacts/Z-fighting */
+  }
+
+  /* Light Theme Override for Room Lines */
+  :global(.light-mode) .face {
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   .front, .back { width: var(--box-w); height: var(--box-h); }
