@@ -860,7 +860,8 @@ import Renderer from '@/components/Renderer.astro';
   .face {
     position: absolute;
     background: transparent;
-    border: 1px solid rgba(100, 200, 255, 0.15); /* More subtle, continuous lines */
+    border: 1px solid rgba(100, 200, 255, 0.15);
+    box-shadow: none;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -929,8 +930,8 @@ import Renderer from '@/components/Renderer.astro';
       width: 60px;
       height: 60px;
       transform-style: preserve-3d;
-      /* Adjusted rotation to break linear alignment and show depth better */
-      transform: rotateX(-35deg) rotateY(35deg);
+      /* Rotation reduced to show true depth "in front" rather than diagonal */
+      transform: rotateX(-30deg) rotateY(15deg);
       transition: transform 0.5s ease;
       margin-bottom: 10px;
   }
@@ -957,13 +958,13 @@ import Renderer from '@/components/Renderer.astro';
   
 
   /* Coordinate Mapping (Mini Scale) */
-  /* Scale: Increased to 32px for better separation */
+  /* Scale: Minimum spacing (20px for 16px cubes = 4px gap) */
   /* Note: We need to combine position transform with hover scale if we want hover scale.
      For now, we just set base position.
   */
-  .mini-cube[data-z="1"] { transform: translate3d(0, 0, 32px); } /* Front */
+  .mini-cube[data-z="1"] { transform: translate3d(0, 0, 20px); } /* Front */
   .mini-cube[data-z="0"] { transform: translate3d(0, 0, 0); }    /* Back */
-  .mini-cube[data-x="1"] { transform: translate3d(32px, 0, 0); }  /* Right */
+  .mini-cube[data-x="1"] { transform: translate3d(20px, 0, 0); }  /* Right */
 
   /* Faces */
   .mc-face {
@@ -985,7 +986,7 @@ import Renderer from '@/components/Renderer.astro';
 
   .mini-cube.active .mc-face {
       background: rgba(88, 166, 255, 0.4);
-      border-color: rgba(88, 166, 255, 0.9);
+      border: 1px solid rgba(88, 166, 255, 0.9);
       box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
   }
 
@@ -1026,8 +1027,8 @@ import Renderer from '@/components/Renderer.astro';
   .mini-map.mobile-mode {
       width: 120px;
       height: 120px;
-      /* Match desktop rotation for consistent non-linear look */
-      transform: rotateX(-35deg) rotateY(35deg);
+      /* Match desktop rotation */
+      transform: rotateX(-30deg) rotateY(15deg);
   }
 
   .mini-map.mobile-mode .mini-cube {
@@ -1043,10 +1044,10 @@ import Renderer from '@/components/Renderer.astro';
   .mini-map.mobile-mode .mc-top    { transform: rotateX(90deg) translateZ(18px); }
   .mini-map.mobile-mode .mc-bottom { transform: rotateX(-90deg) translateZ(18px); }
 
-  /* Mobile Positioning Scale (Doubled: 64px) */
-  .mini-map.mobile-mode .mini-cube[data-z="1"] { transform: translate3d(0, 0, 64px); }
+  /* Mobile Positioning Scale (40px for 36px cubes = 4px gap) */
+  .mini-map.mobile-mode .mini-cube[data-z="1"] { transform: translate3d(0, 0, 40px); }
   .mini-map.mobile-mode .mini-cube[data-z="0"] { transform: translate3d(0, 0, 0); }
-  .mini-map.mobile-mode .mini-cube[data-x="1"] { transform: translate3d(64px, 0, 0); }
+  .mini-map.mobile-mode .mini-cube[data-x="1"] { transform: translate3d(40px, 0, 0); }
 
   /* Adjustments for mobile to ensure spacing */
   .mobile-depth-controls .coords-display {
