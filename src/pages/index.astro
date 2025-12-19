@@ -866,6 +866,7 @@ import Renderer from '@/components/Renderer.astro';
     align-items: center;
     /* box-shadow: inset 0 0 20px rgba(100, 200, 255, 0.05); */ /* Optional: subtle glow */
     pointer-events: none !important;
+    backface-visibility: hidden; /* Fix visual artifacts/Z-fighting */
   }
 
   .front, .back { width: var(--box-w); height: var(--box-h); }
@@ -968,17 +969,17 @@ import Renderer from '@/components/Renderer.astro';
   .mc-face {
       position: absolute;
       width: 100%; height: 100%;
-      background: rgba(255, 255, 255, 0.05);
+      background: transparent; /* Remove shading as requested */
       border: 1px solid rgba(255, 255, 255, 0.2);
       box-sizing: border-box;
-      backface-visibility: visible; /* See through */
+      backface-visibility: hidden; /* Fix visual artifacts */
       pointer-events: none;
       transition: all 0.3s ease;
   }
 
   /* Light Theme Override */
   :global(.light-mode) .mc-face {
-      background: rgba(0, 0, 0, 0.05);
+      background: transparent; /* Remove shading */
       border: 1px solid rgba(0, 0, 0, 0.2);
   }
 
