@@ -6,6 +6,11 @@ use wgpu;
 use crate::uniforms::{SceneUniform, CameraUniform, LightUniform, BlobUniform};
 use crate::resources::{Model, Mesh, Texture, AssetMessage, create_sphere_mesh};
 
+pub struct WorldRay {
+    pub origin: Vec3,
+    pub direction: Vec3,
+}
+
 pub struct GameState {
     // Game State
     pub scene_uniform: SceneUniform,
@@ -41,6 +46,7 @@ pub struct GameState {
     
     // Blob Mesh (created once)
     pub blob_mesh: Mesh,
+    pub blob_screen_pos_cached: [f32; 2],
     
     // Asset Loading
     pub texture_cache: HashMap<usize, Rc<wgpu::TextureView>>,
@@ -103,6 +109,7 @@ impl GameState {
             model_center: Vec3::ZERO,
             model_extent: 2.0,
             blob_mesh,
+            blob_screen_pos_cached: [-1.0; 2],
             texture_cache: HashMap::new(),
             tx,
             rx,
@@ -110,6 +117,63 @@ impl GameState {
             accumulator: 0.0,
             aspect_ratio: 1.0,
         }
+    }
+
+    fn calculate_mouse_ray(&self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) -> WorldRay {
+        let safe_width = screen_width.max(1.0);
+        let safe_height = screen_height.max(1.0);
+
+        let mouse_norm_x = (mouse_x / safe_width) * 2.0 - 1.0;
+        let mouse_norm_y = 1.0 - (mouse_y / safe_height) * 2.0;
+
+        let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+        let y = self.camera_radius * self.camera_polar.cos();
+        let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+        let cam_pos = vec3(x, y, z) + self.camera_target;
+
+        let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+        let proj = Mat4::perspective_rh(45.0_f32.to_radians(), self.aspect_ratio, 0.1, 100.0);
+        let inv_view_proj = (proj * view).inverse();
+
+        let near_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 0.0, 1.0);
+        let far_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 1.0, 1.0);
+        let near_world = vec3(near_point.x, near_point.y, near_point.z) / near_point.w;
+        let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
+
+        WorldRay {
+            origin: near_world,
+            direction: (far_world - near_world).normalize(),
+        }
+    }
+
+    pub fn project_3d_to_screen(&self, world_pos: Vec3, screen_width: f32, screen_height: f32) -> [f32; 2] {
+        let safe_width = screen_width.max(1.0);
+        let safe_height = screen_height.max(1.0);
+
+        let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
+        let y = self.camera_radius * self.camera_polar.cos();
+        let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
+        let cam_pos = vec3(x, y, z) + self.camera_target;
+        
+        let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
+        let proj = Mat4::perspective_rh(45.0_f32.to_radians(), safe_width / safe_height, 0.1, 100.0);
+        let view_proj = proj * view;
+        
+        let world = vec4(world_pos.x, world_pos.y, world_pos.z, 1.0);
+        let clip = view_proj * world;
+        
+        let w = clip.w;
+        if w.abs() < 0.0001 {
+            return [-1.0, -1.0];
+        }
+        
+        let ndc_x = clip.x / w;
+        let ndc_y = clip.y / w;
+        
+        let screen_x = (ndc_x + 1.0) * 0.5;
+        let screen_y = 1.0 - (ndc_y + 1.0) * 0.5;
+        
+        [screen_x, screen_y]
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -220,8 +284,10 @@ impl GameState {
 
         const DT: f64 = 1.0 / 60.0;
         
+        let mouse_ray = self.calculate_mouse_ray(mouse_x, mouse_y, screen_width, screen_height);
+
         while self.accumulator >= DT {
-            self.step_physics(mouse_x, mouse_y, screen_width, screen_height);
+            self.step_physics(&mouse_ray);
             self.accumulator -= DT;
         }
         
@@ -234,6 +300,13 @@ impl GameState {
                 color: self.base_light_color,
             };
             self.blob_light_pos_3d = interpolated_pos;
+        }
+
+        if self.blob_exists {
+            let screen_pos = self.project_3d_to_screen(self.blob_position, screen_width, screen_height);
+            self.blob_screen_pos_cached = screen_pos;
+        } else {
+            self.blob_screen_pos_cached = [-1.0; 2];
         }
 
         // Update other uniforms
@@ -259,60 +332,21 @@ impl GameState {
         self.update_theme_lighting();
     }
     
-    fn step_physics(&mut self, mouse_x: f32, mouse_y: f32, screen_width: f32, screen_height: f32) {
+    fn step_physics(&mut self, ray: &WorldRay) {
         // Store previous state for interpolation
         self.blob_prev_position = self.blob_position;
 
         // Cursor light
         if self.cursor_light_active {
-             let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
-            let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0;
-            
-            let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
-            let y = self.camera_radius * self.camera_polar.cos();
-            let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
-            let cam_pos = vec3(x, y, z) + self.camera_target;
-            
-            let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
-            let proj = Mat4::perspective_rh(45.0_f32.to_radians(), self.aspect_ratio, 0.1, 100.0);
-            let inv_view_proj = (proj * view).inverse();
-            
-            let near_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 0.0, 1.0);
-            let far_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, 1.0, 1.0);
-            
-            let near_world = vec3(near_point.x, near_point.y, near_point.z) / near_point.w;
-            let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
-            let ray_dir = (far_world - near_world).normalize();
-            
             let light_distance = 3.0;
-            self.cursor_light_pos_3d = near_world + ray_dir * light_distance;
+            self.cursor_light_pos_3d = ray.origin + ray.direction * light_distance;
         }
 
         if self.blob_dragging && self.blob_exists {
-            let mouse_norm_x = (mouse_x / screen_width) * 2.0 - 1.0;
-            let mouse_norm_y = 1.0 - (mouse_y / screen_height) * 2.0;
-            
-            let x = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.sin();
-            let y = self.camera_radius * self.camera_polar.cos();
-            let z = self.camera_radius * self.camera_polar.sin() * self.camera_azimuth.cos();
-            let cam_pos = vec3(x, y, z) + self.camera_target;
-            
-            let view = Mat4::look_at_rh(cam_pos, self.camera_target, Vec3::Y);
-            let proj = Mat4::perspective_rh(45.0_f32.to_radians(), self.aspect_ratio, 0.1, 100.0);
-            let inv_view_proj = (proj * view).inverse();
-            
-            let depth = if self.blob_drag_depth > 0.0 {
-                self.blob_drag_depth
-            } else {
-                let blob_clip = proj * view * vec4(self.blob_position.x, self.blob_position.y, self.blob_position.z, 1.0);
-                let blob_ndc_z = blob_clip.z / blob_clip.w;
-                blob_ndc_z.clamp(0.0, 1.0)
-            };
-            
-            let mouse_point = inv_view_proj * vec4(mouse_norm_x, mouse_norm_y, depth, 1.0);
-            let mouse_world = vec3(mouse_point.x, mouse_point.y, mouse_point.z) / mouse_point.w;
-            
-            let to_model = mouse_world - self.model_center;
+            let distance_to_center = (self.model_center - ray.origin).length();
+            let target_pos = ray.origin + ray.direction * distance_to_center;
+
+            let to_model = target_pos - self.model_center;
             let base_radius = (self.model_extent * 0.5).max(3.0);
             let min_radius = base_radius * 0.5;
             let distance = to_model.length();
@@ -325,7 +359,7 @@ impl GameState {
                     self.model_center + vec3(min_radius, 0.0, 0.0)
                 }
             } else {
-                mouse_world
+                target_pos
             };
             
             self.blob_target_position = final_position;

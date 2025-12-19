@@ -191,7 +191,7 @@ impl State {
         }
         
         let world_pos = self.game.blob_position;
-        let screen_pos = self.project_3d_to_screen(world_pos, screen_width, screen_height);
+        let screen_pos = self.game.project_3d_to_screen(world_pos, screen_width, screen_height);
         let mouse_norm_x = mouse_x / screen_width;
         let mouse_norm_y = mouse_y / screen_height;
         
@@ -248,38 +248,11 @@ impl State {
         false
     }
 
-    fn project_3d_to_screen(&self, world_pos: Vec3, screen_width: f32, screen_height: f32) -> [f32; 2] {
-        let x = self.game.camera_radius * self.game.camera_polar.sin() * self.game.camera_azimuth.sin();
-        let y = self.game.camera_radius * self.game.camera_polar.cos();
-        let z = self.game.camera_radius * self.game.camera_polar.sin() * self.game.camera_azimuth.cos();
-        let cam_pos = vec3(x, y, z) + self.game.camera_target;
-        
-        let view = Mat4::look_at_rh(cam_pos, self.game.camera_target, Vec3::Y);
-        let proj = Mat4::perspective_rh(45.0_f32.to_radians(), screen_width / screen_height, 0.1, 100.0);
-        let view_proj = proj * view;
-        
-        let world = vec4(world_pos.x, world_pos.y, world_pos.z, 1.0);
-        let clip = view_proj * world;
-        
-        let w = clip.w;
-        if w.abs() < 0.0001 {
-            return [0.5, 0.5];
-        }
-        
-        let ndc_x = clip.x / w;
-        let ndc_y = clip.y / w;
-        
-        let screen_x = (ndc_x + 1.0) * 0.5;
-        let screen_y = 1.0 - (ndc_y + 1.0) * 0.5;
-        
-        [screen_x, screen_y]
-    }
-    
     #[wasm_bindgen(js_name = "getLightScreenPos")]
     pub fn get_light_screen_pos(&self) -> Array {
         let width = self.renderer.config.width as f32;
         let height = self.renderer.config.height as f32;
-        let screen_pos = self.project_3d_to_screen(self.game.light_pos_3d, width, height);
+        let screen_pos = self.game.project_3d_to_screen(self.game.light_pos_3d, width, height);
         
         let result = Array::new_with_length(2);
         result.set(0, JsValue::from_f64(screen_pos[0] as f64));
@@ -287,20 +260,14 @@ impl State {
         result
     }
 
-    #[wasm_bindgen(js_name = "getBlobScreenPosition")]
-    pub fn get_blob_screen_position(&self) -> Array {
-        if !self.game.blob_exists {
-            return Array::new();
-        }
-        
-        let width = self.renderer.config.width as f32;
-        let height = self.renderer.config.height as f32;
-        let screen_pos = self.project_3d_to_screen(self.game.blob_position, width, height);
-        
-        let result = Array::new_with_length(2);
-        result.set(0, JsValue::from_f64(screen_pos[0] as f64));
-        result.set(1, JsValue::from_f64(screen_pos[1] as f64));
-        result
+    #[wasm_bindgen(js_name = "getBlobScreenX")]
+    pub fn get_blob_screen_x(&self) -> f32 {
+        self.game.blob_screen_pos_cached[0]
+    }
+
+    #[wasm_bindgen(js_name = "getBlobScreenY")]
+    pub fn get_blob_screen_y(&self) -> f32 {
+        self.game.blob_screen_pos_cached[1]
     }
 
     pub fn render(&mut self, time: f32) {

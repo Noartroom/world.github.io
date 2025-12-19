@@ -69,11 +69,13 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
   // Performance Monitoring (SOTA Guardrails)
   let lastFrameTime = performance.now();
-  let frameTimer = 0;
-  let frameCount = 0;
+  const HISTORY_SIZE = 12;
+  let fpsHistory: number[] = [];
   let currentDpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
   let targetDpr = currentDpr;
-  let drsCooldown = 0; // Prevent rapid changes
+  const DRS_STEP = 0.1;
+  const DRS_COOLDOWN_MS = 600;
+  let lastDrsAdjust = 0;
   let lastWidth = 0;
   let lastHeight = 0;
 
@@ -115,38 +117,27 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       return;
     }
 
-    // 2. Performance Guardrails: Monitor Frame Time
+    // 2. Performance Guardrails: Rolling FPS
     const delta = timestamp - lastFrameTime;
     lastFrameTime = timestamp;
     
-    // Einfacher FPS Counter über 1 Sekunde
-    frameTimer += delta;
-    frameCount++;
-    
-    if (frameTimer >= 1000) {
-      const fps = frameCount;
-      // console.log(`FPS: ${fps}, DPR: ${currentDpr.toFixed(2)}`);
-      
-      if (drsCooldown > 0) {
-          drsCooldown--;
-      } else {
-          // DOWNGRADE: If FPS is bad (< 40), drop quality fast
-          if (fps < 40 && targetDpr > 0.5) {
-              targetDpr = Math.max(0.5, targetDpr - 0.25);
-              triggerResize();
-              drsCooldown = 2; // Wait 2 seconds before checking again
-          }
-          // UPGRADE: Relaxed requirement (50 FPS instead of 58)
-          // This lets devices running "okay" (50-55fps) recover sharpness
-          else if (fps >= 50 && targetDpr < (window.devicePixelRatio || 1)) {
-              targetDpr = Math.min(window.devicePixelRatio || 1, targetDpr + 0.1);
-              triggerResize();
-              drsCooldown = 2; // Wait 2 seconds to let it stabilize
-          }
+    const instantFps = delta > 0 ? 1000 / delta : 60;
+    fpsHistory.push(instantFps);
+    if (fpsHistory.length > HISTORY_SIZE) fpsHistory.shift();
+    const avgFps = fpsHistory.reduce((sum, v) => sum + v, 0) / fpsHistory.length;
+
+    const canAdjustDrs = (timestamp - lastDrsAdjust) >= DRS_COOLDOWN_MS && !isTransitioning;
+    if (canAdjustDrs) {
+      const nativeCap = window.devicePixelRatio || 1;
+      if (avgFps < 45 && targetDpr > 0.5) {
+        targetDpr = Math.max(0.5, targetDpr - DRS_STEP);
+        triggerResize();
+        lastDrsAdjust = timestamp;
+      } else if (avgFps > 55 && targetDpr < nativeCap) {
+        targetDpr = Math.min(nativeCap, targetDpr + DRS_STEP);
+        triggerResize();
+        lastDrsAdjust = timestamp;
       }
-      
-      frameTimer = 0;
-      frameCount = 0;
     }
 
     if (state) {
@@ -154,27 +145,16 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
         // --- UI Repulsion (Blob -> UI) ---
         // Get blob position from Rust and push UI elements away
-        if (state.getBlobScreenPosition) {
+        if (state.getBlobScreenX && state.getBlobScreenY) {
             if (isBlobActive.get()) {
-                try {
-                    const blobPos = state.getBlobScreenPosition();
-                    // Check if we got a valid position (array length 2)
-                    if (blobPos && blobPos.length === 2) {
-                        const x = blobPos[0];
-                        const y = blobPos[1];
-                        // Only apply if inside screen bounds
-                        if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
-                             // Apply magnetic repulsion to UI elements
-                             applyUIRepulsion(x, y);
-                        } else {
-                             resetUIRepulsion();
-                        }
-                    }
-                } catch (err) {
-                    // Ignore transient errors
+                const x = state.getBlobScreenX();
+                const y = state.getBlobScreenY();
+                if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+                    applyUIRepulsion(x, y);
+                } else {
+                    resetUIRepulsion();
                 }
             } else {
-                // Reset if blob is not active
                 resetUIRepulsion();
             }
         }
@@ -548,19 +528,17 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   function triggerResize() {
       if (!container || !canvas) return;
 
-      // Mobile Optimization: Cap max DPR to 2.0 (Native 3.0 is wasteful/slow)
-      const maxDpr = window.innerWidth < 768 ? 2.0 : (window.devicePixelRatio || 1);
-      // Ensure we don't exceed the hardware or our cap
-      const allowedDpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+      const isMobile = window.innerWidth < 768;
+      const hardCap = isMobile ? 1.5 : 2.0;
+      const maxDpr = window.devicePixelRatio || 1;
+      const allowedDpr = Math.min(maxDpr, hardCap);
       
-      // Apply our dynamic scaling, but respect the cap
       currentDpr = Math.min(targetDpr, allowedDpr);
 
       const rect = container.getBoundingClientRect();
 
       // --- BUG FIX: Address Bar Ignore Logic ---
       // On mobile, if width is same but height changed slightly (URL bar), SKIP resize.
-      const isMobile = window.innerWidth < 768;
       const widthChanged = rect.width !== lastWidth;
       const heightDiff = Math.abs(rect.height - lastHeight);
       
