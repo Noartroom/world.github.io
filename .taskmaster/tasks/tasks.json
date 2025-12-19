@@ -136,12 +136,23 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Fix Mobile Rendering Issues (Safari/Firefox)",
+        "description": "Investigate and fix mobile rendering issues on Safari and Firefox. User reports unknown error on Safari and background cube line glitches on Firefox. Suspects recent world/nav layer changes.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-16T22:13:25.370Z"
+      "updated": "2025-12-19T02:07:36.413Z"
     }
   }
 }
