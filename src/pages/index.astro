@@ -206,8 +206,9 @@ import Renderer from '@/components/Renderer.astro';
   const navActions = {
       'nav-left': { dx: -1, dy: 0, dz: 0 },
       'nav-right': { dx: 1, dy: 0, dz: 0 },
-      'nav-forward': { dx: 0, dy: 0, dz: -1 }, // -Z (Deep)
-      'nav-backward': { dx: 0, dy: 0, dz: 1 }, // +Z (Out)
+      // Swapped up/down semantics: forward now goes outward (+Z), backward goes inward (-Z)
+      'nav-forward': { dx: 0, dy: 0, dz: 1 },  // +Z (Out)
+      'nav-backward': { dx: 0, dy: 0, dz: -1 }, // -Z (Deep)
   };
 
   // Attach Listeners
@@ -270,8 +271,8 @@ import Renderer from '@/components/Renderer.astro';
         // Horizontal swipe
         target.x = current.x + (dx < 0 ? -1 : 1);
       } else {
-        // Vertical swipe -> map to z depth
-        target.z = current.z + (dy < 0 ? -1 : 1); // up = forward (-z), down = backward (+z)
+        // Vertical swipe -> map to z depth (swapped)
+        target.z = current.z + (dy < 0 ? 1 : -1); // up = outward (+z), down = inward (-z)
       }
 
       if (isLayerValid(target.x, target.y, target.z)) {
