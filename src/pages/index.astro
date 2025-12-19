@@ -238,6 +238,48 @@ import Renderer from '@/components/Renderer.astro';
       });
   });
 
+  // Mobile Swipe Navigation (around nav-layer)
+  const swipeZone = document.getElementById('layer-nav-mobile-container');
+  if (swipeZone) {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+
+    swipeZone.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0];
+      touchStartX = t.screenX;
+      touchStartY = t.screenY;
+      touchStartTime = Date.now();
+    }, { passive: true });
+
+    swipeZone.addEventListener('touchend', (e) => {
+      const t = e.changedTouches[0];
+      const dx = t.screenX - touchStartX;
+      const dy = t.screenY - touchStartY;
+      const dt = Date.now() - touchStartTime;
+
+      const minDist = 30;
+      const maxTime = 600;
+      if (dt > maxTime) return;
+      if (Math.abs(dx) < minDist && Math.abs(dy) < minDist) return;
+
+      const current = activeLayer.get();
+      const target = { ...current };
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal swipe
+        target.x = current.x + (dx < 0 ? -1 : 1);
+      } else {
+        // Vertical swipe -> map to z depth
+        target.z = current.z + (dy < 0 ? -1 : 1); // up = forward (-z), down = backward (+z)
+      }
+
+      if (isLayerValid(target.x, target.y, target.z)) {
+        activeLayer.set(target);
+      }
+    }, { passive: true });
+  }
+
   // Subscribe to layer changes
   activeLayer.subscribe(coords => {
     const isBack = coords.z === 0;
