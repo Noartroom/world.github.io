@@ -5,9 +5,10 @@ import Renderer from '@/components/Renderer.astro';
 <Layout title="Astro Prototype">
   <main>
     <!-- Layer 0: The 3D Scene (Renderer/Model) -->
-    <!-- Reverted: Renderer is no longer wrapped in a separate 'renderer-wrapper' div to reduce DOM depth -->
-    <!-- It now lives directly in the main container, controlled by z-index in CSS -->
-    <Renderer />
+    <!-- Renderer sits on its own layer between background (lines) and foreground (text) -->
+    <div id="layer-middle" class="renderer-wrapper">
+      <Renderer />
+    </div>
 
     <div class="scene-viewport">
     <!-- Layer -1: Background World (Lines/Structure) -->
@@ -506,11 +507,21 @@ import Renderer from '@/components/Renderer.astro';
     }
 
     /* Ensure renderer has clear visibility */
-    /* .renderer-wrapper removed in simplification, applying directly to canvas wrapper if needed */
+    .renderer-wrapper {
+        z-index: 1;
+        background: transparent; 
+    }
   }
 
   /* --- Renderer (Static Background) --- */
-  /* .renderer-wrapper style block removed as it is no longer used */
+  .renderer-wrapper {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1; /* Between background lines (0) and foreground UI (2) */
+      pointer-events: auto; /* Always interactive */
+  }
 
   /* --- 3D World Container (Foreground Text) --- */
   #world-container {
@@ -531,7 +542,7 @@ import Renderer from '@/components/Renderer.astro';
       transform-style: preserve-3d;
       transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Sync with foreground */
       /* will-change removed to prevent Safari stacking context issues */
-      z-index: 0; /* Behind renderer */
+      z-index: 0; /* Always behind renderer */
       pointer-events: none;
   }
 
