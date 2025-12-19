@@ -142,6 +142,15 @@ body.layer-back-active #layer-back {
   );
 }
 
+@media (max-width: 768px) {
+  /* Disable expensive masks on mobile to prevent rendering issues */
+  body.layer-back-active #layer-back {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    background: rgba(0,0,0,0.5); /* Fallback dimming */
+  }
+}
+
 /* Allow interaction with actual content in Back Layer */
 body.layer-back-active #layer-back .room-content {
   pointer-events: none !important;

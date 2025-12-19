@@ -489,6 +489,31 @@ import Renderer from '@/components/Renderer.astro';
     transform-style: preserve-3d;
   }
 
+  /* SIMPLIFICATION FOR MOBILE DEBUGGING */
+  @media (max-width: 768px) {
+    .scene-viewport {
+        perspective: none;
+        transform-style: flat;
+    }
+    
+    /* Hide the complex 3D background on mobile to isolate rendering bugs */
+    #world-background-container {
+        display: none !important;
+    }
+    
+    /* Simplify the foreground container to avoid interference */
+    #world-container {
+        transform-style: flat !important;
+        transform: none !important;
+    }
+
+    /* Ensure renderer has clear visibility */
+    .renderer-wrapper {
+        z-index: 1;
+        background: transparent; 
+    }
+  }
+
   /* --- Renderer (Static Background) --- */
   .renderer-wrapper {
       position: absolute;
