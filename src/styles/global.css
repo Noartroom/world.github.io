@@ -7,28 +7,10 @@
   --sun-color: black;
   --moon-color: transparent;
 
-  /* Base Colors (Dark Mode Default) */
-  --text-color: #fff;
-  --bg-color: transparent;
-  --btn-bg: #444;
-  --btn-text: #c9d1d9;
-  --link-color: #bf753d;
-  --link-visited: #785438;
-  --room-text-color: rgba(255, 255, 255, 1);
-
   /* Global light position variables (set by Renderer.astro) */
   --light-x: 50vw;
   --light-y: 50vh;
   --light-intensity: 0;
-}
-
-:root:where(.light-mode) {
-    --text-color: #444;
-    --btn-bg: #c9d1d9;
-    --btn-text: #444;
-    --link-color: #58a6ff;
-    --link-visited: #434669;
-    --room-text-color: rgba(0, 0, 0, 1);
 }
 
 body {
@@ -36,9 +18,9 @@ body {
     Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
     "Segoe UI Symbol", "Noto Color Emoji";
   
-  /* Use CSS variables for compatibility */
-  color: var(--text-color);
-  background-color: var(--bg-color);
+  /* Use light-dark() functions for base colors */
+  color: light-dark(#444, #fff);
+  background-color: transparent;
 
   /* Make the app full-page */
   margin: 0;
@@ -63,8 +45,8 @@ button, a, input, select, label {
 }
 
 button {
-  background-color: var(--btn-bg);
-  color: var(--btn-text);
+  background-color: light-dark(#c9d1d9, #444);
+  color: light-dark(#444, #c9d1d9);
   padding: 8px;
   border-radius: 4px;
   border: none;
@@ -73,10 +55,10 @@ button {
 }
 
 a:link {
-  color: var(--link-color);
+  color: light-dark(#58a6ff, #bf753d);
 }
 a:visited {
-  color: var(--link-visited);
+  color: light-dark(#434669, #785438);
 }
 
 /* Theme toggle styles from your 'style.css' */
@@ -157,7 +139,7 @@ body.layer-back-active #layer-back .room-content {
   cursor: default; /* Prevent flickering to text cursor */
   transform: translateY(-38vh); /* Move text to top to avoid blocking interaction */
   /* Active: Light=Black 1.0, Dark=White 1.0 */
-  color: var(--room-text-color);
+  color: light-dark(rgba(0, 0, 0, 1), rgba(255, 255, 255, 1));
 }
 
 /* Smooth transition for text position matches wireframe animation */
