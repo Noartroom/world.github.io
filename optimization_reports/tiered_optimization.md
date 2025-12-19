@@ -1,6 +1,9 @@
 current store is binary (isLowPower vs. Normal). To achieve the "SOTA vs. Safe" split without glitches, we need to distinguish between "Capable of Rendering" (WebGPU works) and "Capable of High-Fidelity" (Can handle 30MB assets + 4K textures).
 
-Here is the improved implementation that hooks directly into your existing deviceStore.ts.
+
+Idea: We need to think about different tiers: 1) Lowest processing power: Mobile (keep in mind that mobile can ahve a variety of sizes and shapes) 2) Mid-tier: Desktop (maybe an additional check if there is a keyboard would help distinguish this) 3) Desktop + Webgpu capable. 
+
+Here is a suggestion for an improved implementation that hooks directly into your existing deviceStore.ts.
 
 1. Refine deviceStore.ts (Add the "High End" Tier)
 

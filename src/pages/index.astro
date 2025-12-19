@@ -4,109 +4,218 @@ import Renderer from '@/components/Renderer.astro';
 ---
 <Layout title="Astro Prototype">
   <main>
-    <!-- Persistent UI: Always on top (Buttons) -->
-    <div id="layer-persistent">
-      <nav class="global-controls" aria-label="Global Controls">
-        <div class="layer-nav-desktop">
-          <button id="nav-layer-down-desktop" class="global-toggle nav-arrow desktop-arrow" aria-label="Back Layer">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-          </button>
-
-          <!-- Layer Indicator (Sandwiched) -->
-          <div id="layer-indicator-desktop" class="layer-indicator desktop-indicator" role="status" aria-label="Current Layer">
-              <div class="layer-icon">
-                  <div class="layer-box back-box"></div>
-                  <div class="layer-box front-box"></div>
-              </div>
-              <span class="layer-text">L1</span>
+    <!-- Layer -1: Background World (Lines/Structure) -->
+    <!-- This sits BEHIND the renderer to avoid occluding the model -->
+    <div id="world-background-container">
+        
+        <!-- Layer (0,0,0) [Back/Deep] -->
+        <div id="bg-layer-back" class="world-layer" data-x="0" data-y="0" data-z="0">
+          <div class="room-content">
+             <div class="layer-background">
+                 <div class="cube-container">
+                    <div class="cube static-cube">
+                      <div class="face front"></div>
+                      <div class="face back"></div>
+                      <div class="face right"></div>
+                      <div class="face left"></div>
+                      <div class="face top"></div>
+                      <div class="face bottom"></div>
+                    </div>
+                 </div>
+             </div>
           </div>
+        </div>
 
-          <button id="nav-layer-up-desktop" class="global-toggle nav-arrow desktop-arrow" aria-label="Front Layer">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-          </button>
+        <!-- Layer (1,0,0) [Right] -->
+        <div id="bg-layer-right" class="world-layer" data-x="1" data-y="0" data-z="0">
+           <div class="room-content">
+              <div class="layer-background">
+                 <div class="cube-container room-visual">
+                    <div class="cube static-cube">
+                      <div class="face front"></div>
+                      <div class="face back"></div>
+                      <div class="face right"></div>
+                      <div class="face left"></div>
+                      <div class="face top"></div>
+                      <div class="face bottom"></div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+
+        <!-- Layer (0,0,1) [Front/Top] -->
+        <div id="bg-layer-front" class="world-layer" data-x="0" data-y="0" data-z="1">
+          <div class="room-content">
+              <div class="layer-background">
+                 <div class="cube-container room-visual">
+                    <div class="cube static-cube">
+                      <div class="face front"></div>
+                      <div class="face back"></div>
+                      <div class="face right"></div>
+                      <div class="face left"></div>
+                      <div class="face top"></div>
+                      <div class="face bottom"></div>
+                    </div>
+                 </div>
+              </div>
+          </div>
         </div>
         
-        <div class="divider"></div>
+    </div>
 
+    <!-- Layer 0: The 3D Scene (Renderer/Model) -->
+    <div id="layer-middle" class="renderer-wrapper">
+      <Renderer />
+    </div>
+
+    <!-- Persistent UI: Always on top (Buttons) -->
+    <div id="layer-persistent">
+      
+      <!-- Spatial Navigation (Right Side Stack) -->
+      <div class="spatial-nav-right">
+          <!-- In (Forward) -->
+          <button id="nav-forward" class="nav-btn-circle" aria-label="Move In">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 4L12 16M12 4L8 8M12 4L16 8M4 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          
+          <!-- Horizontal Row: Left / Cube / Right -->
+          <div class="nav-horizontal-row">
+              <button id="nav-left" class="nav-btn-circle" aria-label="Move Left">
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="transform: rotate(-90deg)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+              </button>
+              
+              <!-- Indicator Cube (Center) -->
+              <div class="indicator-stack">
+                  <div class="mini-map" id="mini-map-desktop">
+                      <!-- Layer (0,0,1) Front -->
+                      <button class="mini-cube" data-x="0" data-y="0" data-z="1" aria-label="Go to Front Layer">
+                        <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                        <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                        <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                      <!-- Layer (0,0,0) Back -->
+                      <button class="mini-cube" data-x="0" data-y="0" data-z="0" aria-label="Go to Back Layer">
+                         <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                         <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                         <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                      <!-- Layer (1,0,0) Right -->
+                      <button class="mini-cube" data-x="1" data-y="0" data-z="0" aria-label="Go to Right Layer">
+                         <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                         <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                         <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                  </div>
+                  <div id="coords-desktop" class="coords-display">0,0,0</div>
+              </div>
+
+              <button id="nav-right" class="nav-btn-circle" aria-label="Move Right">
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="transform: rotate(90deg)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+              </button>
+          </div>
+
+          <!-- Out (Backward) -->
+          <button id="nav-backward" class="nav-btn-circle" aria-label="Move Out">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 20L12 8M12 20L8 16M12 20L16 16M4 4H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+      </div>
+
+      <!-- Top Bar: Toggles only -->
+      <nav class="global-controls" aria-label="Global Controls">
         <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme" aria-pressed="false">Theme</button>
         <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model" aria-pressed="false">Model</button>
         <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect" aria-pressed="false">Light</button>
         
+        <div class="divider"></div>
+
         <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24" aria-valuenow="12" aria-valuetext="12:00 UTC">
-          <span class="time-label">TIME</span>
           <span class="time-value">12:00</span>
         </div>
       </nav>
 
-      <!-- Mobile Nav (Placed outside global-controls to avoid containing block issues) -->
+      <!-- Mobile Nav (Map Only) -->
       <div class="layer-nav-mobile" id="layer-nav-mobile-container">
-        <button id="nav-layer-up-mobile" class="global-toggle nav-arrow" aria-label="Front Layer">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
-        </button>
-        
-        <!-- Mobile Layer Indicator -->
-        <div id="layer-indicator-mobile" class="layer-indicator mobile-indicator" role="status" aria-label="Current Layer">
-            <div class="layer-icon">
-                <div class="layer-box back-box"></div>
-                <div class="layer-box front-box"></div>
-            </div>
-            <span class="layer-text">L1</span>
+        <!-- Reusing the mini-map structure for mobile, positioned bottom right -->
+        <div class="mobile-map-container">
+             <div class="mini-map mobile-mode" id="mini-map-mobile">
+                  <!-- Layer (0,0,1) Front -->
+                  <button class="mini-cube" data-x="0" data-y="0" data-z="1" aria-label="Go to Front Layer">
+                    <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                    <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                    <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+                  <!-- Layer (0,0,0) Back -->
+                  <button class="mini-cube" data-x="0" data-y="0" data-z="0" aria-label="Go to Back Layer">
+                     <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                     <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                     <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+                  <!-- Layer (1,0,0) Right -->
+                  <button class="mini-cube" data-x="1" data-y="0" data-z="0" aria-label="Go to Right Layer">
+                     <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                     <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                     <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+              </div>
+             <div id="coords-mobile" class="coords-display">0,0,0</div>
         </div>
-
-        <button id="nav-layer-down-mobile" class="global-toggle nav-arrow" aria-label="Back Layer">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-        </button>
       </div>
     </div>
 
-    <!-- Back Layer: Content behind the 3D scene (Moves to front when active) -->
-    <div id="layer-back" class="layer">
-      <div class="back-content">
-      <!--         <h2>Noartroom</h2> -->
-        <p class="description-background" transition:name="desc-layer-1">Layer 1</p>
-        <p class="description-foreground" transition:name="desc-layer-0">Layer 0</p>
+    <!-- Layer 1: Foreground World (Text/UI) -->
+    <!-- Holds only the flying UI layers, on top of renderer -->
+    <div id="world-container">
         
-        <div class="cube-container">
-          <div class="cube">
-            <div class="face front"></div>
-            <div class="face back"></div>
-            <div class="face right"></div>
-            <div class="face left"></div>
-            <div class="face top"></div>
-            <div class="face bottom"></div>
+        <!-- Layer (0,0,0) [Back/Deep] -->
+        <div id="layer-back" class="world-layer" data-x="0" data-y="0" data-z="0">
+          <div class="room-content">
+            <div class="layer-foreground">
+                <!-- <h2>Layer 0</h2>
+                <p class="description-background">Deep Layer</p> -->
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Middle Layer: The 3D Scene -->
-    <div id="layer-middle" class="layer">
-      <Renderer />
-    </div>
+        <!-- Layer (1,0,0) [Right] -->
+        <div id="layer-right" class="world-layer" data-x="1" data-y="0" data-z="0">
+           <div class="room-content">
+              <div class="layer-foreground">
+                 <div class="content-box">
+                     <!-- <h2 style="view-transition-name: layer-title;">Right Wing</h2>
+                     <p style="view-transition-name: layer-coords;">Layer (1,0,0)</p> -->
+                 </div>
+              </div>
+           </div>
+        </div>
 
-    <!-- Front Layer: Non-persistent UI (Audio Player, Titles) -->
-    <div id="layer-front" class="layer">
-      <!-- <h1 id="page-title" class="floating-title" transition:name="room-title">Room 1</h1> --> <!-- test -->
-      
+        <!-- Layer (0,0,1) [Front/Top] -->
+        <div id="layer-front" class="world-layer" data-x="0" data-y="0" data-z="1">
+          <div class="room-content">
+              <div class="layer-foreground">
+                 <!-- <h2>Top Layer</h2>
+                 <h1 id="page-title" class="floating-title">Room 1</h1> -->
+              </div>
+          </div>
+        </div>
+        
     </div>
   </main>
 </Layout>
 
 <script>
+  // @ts-nocheck
   // This script controls the global buttons
-  import { theme, activeModel, isBlobActive, activeLayer } from '../lib/stores/sceneStore';
+  import { theme, activeModel, isBlobActive, activeLayer, getAvailableMoves, isLayerValid } from '../lib/stores/sceneStore';
   import { timeStore, changeTime } from '../lib/stores/timeStore';
 
   const themeButton = document.getElementById('themeToggle');
   themeButton?.addEventListener('click', () => {
     const currentTheme = theme.get();
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
-    // Only toggle theme - do not switch model
     theme.set(newTheme);
   });
 
-  // Subscribe to theme changes to update body class
   theme.subscribe(newTheme => {
     if (newTheme === 'light') {
       document.body.classList.add('light-mode');
@@ -115,7 +224,6 @@ import Renderer from '@/components/Renderer.astro';
       document.body.classList.add('dark-mode');
       document.body.classList.remove('light-mode');
     }
-    // Update button state
     if (themeButton) {
       themeButton.setAttribute('aria-pressed', (newTheme === 'dark').toString());
     }
@@ -125,16 +233,13 @@ import Renderer from '@/components/Renderer.astro';
   modelButton?.addEventListener('click', () => {
     const current = activeModel.get();
     const newModel = current === 'light' ? 'dark' : 'light';
-    // Only update if different to avoid unnecessary triggers
     if (current !== newModel) {
       activeModel.set(newModel);
     }
   });
 
-  // Subscribe to model changes
   activeModel.subscribe(model => {
     if (modelButton) {
-      // Assuming 'dark' model corresponds to the "active/pressed" state of the switch
       modelButton.setAttribute('aria-pressed', (model === 'dark').toString());
     }
   });
@@ -144,104 +249,143 @@ import Renderer from '@/components/Renderer.astro';
     isBlobActive.set(!isBlobActive.get());
   });
 
-  // Subscribe to blob changes
   isBlobActive.subscribe(active => {
     if (blobButton) {
       blobButton.setAttribute('aria-pressed', active.toString());
     }
   });
 
-  // --- Layer Navigation Logic ---
-  const navUpDesktop = document.getElementById('nav-layer-up-desktop');
-  const navDownDesktop = document.getElementById('nav-layer-down-desktop');
-  const navUpMobile = document.getElementById('nav-layer-up-mobile');
-  const navDownMobile = document.getElementById('nav-layer-down-mobile');
+  // --- Spatial Navigation Logic ---
+  
+  // Map buttons to vectors (Up/Down removed)
+  const navActions = {
+      'nav-left': { dx: -1, dy: 0, dz: 0 },
+      'nav-right': { dx: 1, dy: 0, dz: 0 },
+      'nav-forward': { dx: 0, dy: 0, dz: -1 }, // -Z (Deep)
+      'nav-backward': { dx: 0, dy: 0, dz: 1 }, // +Z (Out)
+  };
 
-  const setFront = () => activeLayer.set('front');
-  const setBack = () => activeLayer.set('back');
+  // Attach Listeners
+  Object.entries(navActions).forEach(([id, delta]) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+          btn.addEventListener('click', () => {
+             const current = activeLayer.get();
+             const target = { x: current.x + delta.dx, y: current.y + delta.dy, z: current.z + delta.dz };
+             
+             if (isLayerValid(target.x, target.y, target.z)) {
+                 activeLayer.set(target); // Seamless CSS transition
+             }
+          });
+      }
+  });
 
-  navUpDesktop?.addEventListener('click', setFront);
-  navDownDesktop?.addEventListener('click', setBack);
-  navUpMobile?.addEventListener('click', setFront);
-  navDownMobile?.addEventListener('click', setBack);
+  // Attach Listeners for Mini Map Cubes
+  document.querySelectorAll('.mini-cube').forEach(cube => {
+      cube.addEventListener('click', (e) => {
+          const x = parseInt(cube.dataset.x);
+          const y = parseInt(cube.dataset.y);
+          const z = parseInt(cube.dataset.z);
+          
+          if (isLayerValid(x, y, z)) {
+              activeLayer.set({ x, y, z });
+          }
+      });
+  });
 
   // Subscribe to layer changes
-  activeLayer.subscribe(layer => {
-    const isBack = layer === 'back';
+  activeLayer.subscribe(coords => {
+    const isBack = coords.z === 0;
     
-    // Update body class for CSS styling
-    document.body.classList.toggle('layer-back-active', isBack);
-    document.body.classList.toggle('layer-front-active', !isBack);
+    // Update body class
+    const isFront = coords.z === 1 && coords.x === 0 && coords.y === 0;
+    document.body.classList.toggle('layer-back-active', !isFront);
+    document.body.classList.toggle('layer-front-active', isFront);
 
-    // Update button states
-    const updateButtons = (upBtn: HTMLElement | null, downBtn: HTMLElement | null) => {
-      if (upBtn && downBtn) {
-        upBtn.classList.toggle('active', !isBack);
-        upBtn.setAttribute('aria-pressed', (!isBack).toString());
-        
-        downBtn.classList.toggle('active', isBack);
-        downBtn.setAttribute('aria-pressed', isBack.toString());
-      }
-    };
-
-    updateButtons(navUpDesktop, navDownDesktop);
-    updateButtons(navUpMobile, navDownMobile);
-
-    // Update Indicators (Desktop & Mobile)
-    const updateIndicator = (id: string) => {
-        const indicator = document.getElementById(id);
-        const layerText = indicator?.querySelector('.layer-text');
-        
-        if (indicator && layerText) {
-            if (isBack) {
-                // Back Layer Active (L0)
-                indicator.classList.add('is-back');
-                indicator.classList.remove('is-front');
-                layerText.textContent = 'L0';
+    // 1. Update Navigation Button Visibility (Desktop Arrows)
+    const moves = getAvailableMoves(coords);
+    
+    const updateButton = (id, available) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            // Using opacity/pointer-events instead of display:none to prevent layout shift
+            if (available) {
+                btn.classList.remove('disabled');
+                btn.removeAttribute('disabled');
+                btn.setAttribute('aria-hidden', 'false');
             } else {
-                // Front Layer Active (L1)
-                indicator.classList.add('is-front');
-                indicator.classList.remove('is-back');
-                layerText.textContent = 'L1';
+                btn.classList.add('disabled');
+                btn.setAttribute('disabled', 'true');
+                btn.setAttribute('aria-hidden', 'true');
             }
         }
     };
 
-    updateIndicator('layer-indicator-desktop');
-    updateIndicator('layer-indicator-mobile');
+    updateButton('nav-left', moves.left);
+    updateButton('nav-right', moves.right);
+    updateButton('nav-forward', moves.forward);
+    updateButton('nav-backward', moves.backward);
 
-    // Manage Focus/Visibility (Inert)
-    const layerBack = document.getElementById('layer-back');
+    // 2. Update 3D World Transform
+    const worldContainer = document.getElementById('world-container');
+    const worldBgContainer = document.getElementById('world-background-container');
+    
+    const tx = coords.x * -100; // vw
+    const ty = coords.y * -100; // vh
+    const tz = coords.z * -500; // px
+    const transform = `translate3d(${tx}vw, ${ty}vh, ${tz}px)`;
+
+    if (worldContainer) {
+        worldContainer.style.transform = transform;
+    }
+    if (worldBgContainer) {
+        worldBgContainer.style.transform = transform;
+    }
+
+    // 3. Update Mini Map Active State
+    document.querySelectorAll('.mini-cube').forEach(cube => {
+        const x = parseInt(cube.dataset.x);
+        const y = parseInt(cube.dataset.y);
+        const z = parseInt(cube.dataset.z);
+        // Simple equality check
+        if (x === coords.x && y === coords.y && z === coords.z) {
+            cube.classList.add('active');
+            cube.setAttribute('aria-current', 'true');
+        } else {
+            cube.classList.remove('active');
+            cube.removeAttribute('aria-current');
+        }
+    });
+
+    // 4. Update Coordinate Display
+    const coordText = `${coords.x},${coords.y},${coords.z}`;
+    const coordsDesktop = document.getElementById('coords-desktop');
+    const coordsMobile = document.getElementById('coords-mobile');
+    if (coordsDesktop) coordsDesktop.textContent = coordText;
+    if (coordsMobile) coordsMobile.textContent = coordText;
+
+    // 5. Inert Logic
     const layerFront = document.getElementById('layer-front');
-
-    if (layerBack && layerFront) {
-      if (isBack) {
-        // Back is active: Front should be inert
-        layerFront.setAttribute('inert', '');
-        layerBack.removeAttribute('inert');
-      } else {
-        // Front is active: Back should be inert
-        layerBack.setAttribute('inert', '');
-        layerFront.removeAttribute('inert');
-      }
+    if (layerFront) {
+        if (isFront) {
+            layerFront.removeAttribute('inert');
+        } else {
+            layerFront.setAttribute('inert', '');
+        }
     }
   });
 
   // Time Control Logic
   const timeDisplay = document.getElementById('time-display');
   const timeValue = timeDisplay?.querySelector('.time-value');
-
-  // Get timezone info
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  // Extract city: "Europe/Berlin" -> "Berlin", replace underscores with spaces
   const city = (timeZone.split('/').pop() || 'UTC').replace(/_/g, ' ').toUpperCase();
-  function formatTime(hours: number): string {
+  function formatTime(hours) {
     const h = Math.floor(hours);
     const m = Math.floor((hours - h) * 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${city}`;
   }
 
-  // Update display when store changes
   timeStore.subscribe(value => {
     if (timeValue) {
       timeValue.textContent = formatTime(value);
@@ -253,24 +397,15 @@ import Renderer from '@/components/Renderer.astro';
   });
 
   if (timeDisplay) {
-    // Fast Scroll (Wheel)
     timeDisplay.addEventListener('wheel', (e) => {
       e.preventDefault();
-      
-      // Determine sensitivity based on scroll speed/intensity
-      // Standard deltaY is ~100.
       const magnitude = Math.abs(e.deltaY);
-      let increment = 0.25; // Default 15 mins
-
-      if (magnitude > 50) {
-        increment = 1.0; // 1 Hour
-      }
-
+      let increment = 0.25;
+      if (magnitude > 50) increment = 1.0;
       const delta = e.deltaY > 0 ? increment : -increment;
       changeTime(delta);
     }, { passive: false });
 
-    // Keyboard interaction
     timeDisplay.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
         e.preventDefault();
@@ -281,28 +416,19 @@ import Renderer from '@/components/Renderer.astro';
       }
     });
 
-    // Touch Interaction (Mobile Swipe)
     let touchStartY = 0;
     timeDisplay.addEventListener('touchstart', (e) => {
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
     timeDisplay.addEventListener('touchmove', (e) => {
-       // Prevent page scroll when interacting with the time control
        if (e.cancelable) e.preventDefault();
-       
        const currentY = e.touches[0].clientY;
        const deltaY = currentY - touchStartY;
-       
-       // Threshold to avoid accidental jitters
        if (Math.abs(deltaY) > 5) {
-           // Drag UP = Increment Time (Natural scrolling feeling)
-           // Drag DOWN = Decrement Time
            const direction = deltaY > 0 ? -1 : 1;
-           
-           // Smoother increments for touch
            changeTime(direction * 0.15);
-           touchStartY = currentY; // Reset for continuous drag
+           touchStartY = currentY;
        }
     }, { passive: false });
   }
@@ -310,31 +436,22 @@ import Renderer from '@/components/Renderer.astro';
 </script>
 
 <script is:inline>
-  // --- Idle Detection Logic ---
-  // Using inline script to ensure it runs independently of module dependencies
   let idleTimer;
-  let idleTimeoutDuration = 30000; // Start with 30 seconds
+  let idleTimeoutDuration = 30000;
   let lastMouseX = 0;
   let lastMouseY = 0;
 
   function resetIdleTimer() {
-    // If we were idle, remove the class
     if (document.body.classList.contains('user-idle')) {
-      console.log('User active - waking up UI');
       document.body.classList.remove('user-idle');
     }
-
-    // Reset the timer
     clearTimeout(idleTimer);
     idleTimer = window.setTimeout(() => {
-      console.log('User idle - fading out UI');
       document.body.classList.add('user-idle');
-      // After first disappearance, reduce timeout to 10 seconds
       idleTimeoutDuration = 10000;
     }, idleTimeoutDuration);
   }
 
-  // Ignore small mouse movements (jitter)
   function handleMouseMove(e) {
     if (Math.abs(e.clientX - lastMouseX) > 2 || Math.abs(e.clientY - lastMouseY) > 2) {
       lastMouseX = e.clientX;
@@ -343,124 +460,170 @@ import Renderer from '@/components/Renderer.astro';
     }
   }
 
-  // List of events that constitute "user interaction"
   const userEvents = ['mousedown', 'click', 'keypress', 'touchstart', 'touchmove', 'wheel', 'scroll'];
-
   userEvents.forEach(event => {
     window.addEventListener(event, resetIdleTimer, { passive: true });
   });
-  
-  // Handle mousemove separately
   window.addEventListener('mousemove', handleMouseMove, { passive: true });
-
-  // Start the timer initially
   resetIdleTimer();
-</script>
-
-<script>
-  import { activeLayer } from '../lib/stores/sceneStore';
-
-  // --- Swipe Gesture for Layer Switching (Mobile) ---
-  const swipeZone = document.getElementById('layer-nav-mobile-container');
-
-  if (swipeZone) {
-      let touchStartX = 0;
-      let touchStartY = 0;
-      let touchStartTime = 0;
-
-      swipeZone.addEventListener('touchstart', (e) => {
-          touchStartX = e.changedTouches[0].screenX;
-          touchStartY = e.changedTouches[0].screenY;
-          touchStartTime = Date.now();
-      }, { passive: true });
-
-      swipeZone.addEventListener('touchend', (e) => {
-          const touchEndX = e.changedTouches[0].screenX;
-          const touchEndY = e.changedTouches[0].screenY;
-          const duration = Date.now() - touchStartTime;
-          
-          const deltaX = touchEndX - touchStartX;
-          const deltaY = touchEndY - touchStartY;
-          
-          // Thresholds
-          const minSwipeDistance = 30;
-          const maxSwipeDuration = 500;
-          
-          // Check if it's a flick/swipe and vertical
-          if (duration < maxSwipeDuration && Math.abs(deltaY) > minSwipeDistance) {
-              // Don't block button clicks, but allow swipes over them if movement occurred
-              
-              if (deltaY < 0) {
-                  // Swipe UP -> Reveal Back
-                  activeLayer.set('back');
-              } else {
-                  // Swipe DOWN -> Reveal Front
-                  activeLayer.set('front');
-              }
-          }
-      }, { passive: true });
-  }
 </script>
 
 <style>
   main {
     width: 100vw;
     height: 100vh;
-    overflow: hidden; /* Make it full-screen */
+    overflow: hidden;
     background: transparent;
-    position: relative; /* Context for absolute layers */
+    position: relative;
+    perspective: 1000px; /* Global Perspective for 3D Layers */
+  }
+
+  /* --- Renderer (Static Background) --- */
+  .renderer-wrapper {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1; /* Behind Foreground, In front of Background Lines */
+      pointer-events: auto; /* Always interactive */
+  }
+
+  /* --- 3D World Container (Foreground Text) --- */
+  #world-container {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Smooth Transition */
+      z-index: 2; /* Above renderer */
+      pointer-events: none; /* Pass clicks to renderer */
+  }
+
+  /* --- 3D Background Container (Lines) --- */
+  #world-background-container {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Sync with foreground */
+      will-change: transform; /* Hint to browser to prevent repaints */
+      z-index: 0; /* Behind renderer */
+      pointer-events: none;
   }
 
   /* Layer Base Styles */
-  .layer {
+  .world-layer {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    transition: all 0.5s ease-out;
+    width: 100vw;
+    height: 100vh;
+    backface-visibility: hidden;
+    pointer-events: none;
+  }
+  
+  /* Allow interaction with specific children */
+  .world-layer > * {
+      pointer-events: none; /* Default to pass-through */
   }
 
-  /* --- Persistent Layer (UI) --- */
+  /* Room Content Wrapper */
+  .room-content {
+      width: 100%; height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+  }
+
+  .layer-background {
+      position: absolute;
+      inset: 0;
+      pointer-events: none; /* Always pass through */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .layer-foreground {
+      position: relative;
+      z-index: 10;
+      pointer-events: none;
+      text-align: center;
+      margin-top: -200px; /* Adjust vertical placement */
+      color: white;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  }
+
+  .layer-foreground h1,
+  .layer-foreground h2,
+  .layer-foreground p {
+      pointer-events: auto;
+      max-width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+  }
+
+  /* Reduce font size on mobile */
+  @media (max-width: 768px) {
+      .layer-foreground h2 {
+          font-size: 1.5rem !important;
+      }
+  }
+
+  .layer-foreground h2 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+  }
+
+  /* Landscape Mobile Adjustment */
+  @media (max-height: 500px) {
+      .layer-foreground {
+          margin-top: 0 !important;
+      }
+  }
+
+  .layer-foreground p {
+      opacity: 0.8;
+  }
+
+  /* --- Layer Placement --- */
+  
+  /* Layer (0,0,0) - Back/Deep */
+  #layer-back, #bg-layer-back {
+      transform: translate3d(0, 0, 0px);
+  }
+
+  /* Layer (1,0,0) - Right */
+  #layer-right, #bg-layer-right {
+      transform: translate3d(100vw, 0, 0px);
+      /* No Background, Wireframe aesthetic */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  /* Layer (0,0,1) - Front/Top */
+  #layer-front, #bg-layer-front {
+      transform: translate3d(0, 0, 500px);
+  }
+
+  /* --- Persistent UI --- */
   #layer-persistent {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 0; /* Don't block clicks on full screen */
-    z-index: 100; /* ALWAYS ON TOP */
+    height: 0;
+    z-index: 100;
     pointer-events: none;
   }
 
-  /* --- Back Layer --- */
-  #layer-back {
-    z-index: 0; /* Default: Behind everything */
-    /* opacity: 0.3; Moved to .back-content to fix ViewTransition bug */
-    transform: scale(0.95);
-    pointer-events: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  /* --- Middle Layer (3D) --- */
-  #layer-middle {
-    z-index: 1; /* Default: Middle */
-    pointer-events: none; /* Let clicks pass through */
-  }
-
-  /* --- Front Layer --- */
-  #layer-front {
-    z-index: 2; /* Default: Front */
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-
-  /* Interactive elements need pointer events */
-  #layer-persistent .global-controls,
-  #layer-front .floating-title,
-  #layer-front :global(.iamf-player) {
-    pointer-events: auto;
+  .content-box {
+      padding: 2rem;
+      color: white;
+      pointer-events: none;
   }
 
   /* --- Navigation Controls --- */
@@ -471,226 +634,253 @@ import Renderer from '@/components/Renderer.astro';
     width: 100%;
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap; /* Force single line */
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
     gap: 0.5rem;
     pointer-events: auto;
-    /* border-radius: 0; */
     padding: 0.5rem;
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(20px);
     z-index: 1000;
-    /* Box shadow always present, intensity controlled by CSS var */
-    --panel-glow: 0;
-    box-shadow: 0 0 calc(30px * var(--panel-glow)) rgba(240, 245, 255, var(--panel-glow));
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    overflow-x: auto; /* Allow scroll on very small screens if needed */
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
   }
 
-  .layer-nav-desktop {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0;
-    align-items: center;
+  /* --- Right Side Navigation (Desktop) --- */
+  .spatial-nav-right {
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem; /* Space between In, Cross, Out */
+      z-index: 1000;
+      pointer-events: none; /* Pass clicks through the container gaps */
   }
 
-  /* Default state for mobile nav: Hidden on Desktop */
-  .layer-nav-mobile {
-    display: none;
-  }
-
-  .nav-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.25em;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-  }
-
-  /* Desktop Arrow Override: Replace circular shape */
-  .desktop-arrow {
-      border-radius: 8px;
-      width: auto;
-      height: auto;
-      padding: 0.5em 0.8em;
-  }
-  
-  .desktop-indicator {
-      margin: 0 0.5rem;
-  }
-
-  /* Layer Indicator */
-  .layer-indicator {
+  /* Updated layout: Horizontal Row for Left-Cube-Right */
+  .nav-horizontal-row {
       display: flex;
       align-items: center;
-      gap: 0.8rem;
-      font-family: 'Courier New', monospace;
-      font-weight: bold;
-      color: rgba(255, 255, 255, 0.9);
-      background: rgba(0, 0, 0, 0.2);
-      padding: 0.4rem 0.8rem;
-      border-radius: 4px;
+      gap: 8px;
+      pointer-events: none;
+  }
+
+  .nav-btn-circle {
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      /* backdrop-filter removed to fix visual glitch on 3D background */
+      padding: 0;
+      pointer-events: auto; /* Buttons must be clickable */
+  }
+
+
+  /* Disabled State: Grayed out but visible */
+  .nav-btn-circle.disabled {
+      opacity: 0.3;
+      pointer-events: none;
+      cursor: not-allowed;
+      transform: none;
+      filter: grayscale(100%);
+  }
+
+  .global-toggle {
+      padding: 0.5em 1em;
+      background: rgba(68, 68, 68, 0.8);
+      color: white;
       border: 1px solid rgba(255, 255, 255, 0.1);
+      /* backdrop-filter removed to fix visual glitch on 3D background */
+      transition: all 0.2s ease-out;
+      cursor: pointer;
+      border-radius: 6px;
   }
 
-  .layer-icon {
+
+  /* Invisible but layout-preserving disabled state */
+  .global-toggle.disabled {
+      opacity: 0.3;
+      pointer-events: none;
+  }
+
+  /* --- 3D Indicator --- */
+  .layer-indicator-3d {
+      width: 32px;
+      height: 32px;
+      perspective: 100px;
+      pointer-events: auto; /* Maybe clickable later, but safe for now */
+  }
+  
+  .indicator-cube {
+      width: 100%; height: 100%;
       position: relative;
-      width: 16px;
-      height: 16px;
+      transform-style: preserve-3d;
+      transform: rotateX(-20deg) rotateY(45deg); /* Static View */
+      transition: transform 0.5s ease;
   }
 
-  .layer-box {
+  .ind-face {
       position: absolute;
-      width: 12px;
-      height: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      background: rgba(0, 0, 0, 0.3);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 16px; height: 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      top: 8px; left: 8px;
+      transition: all 0.3s ease;
+  }
+  
+  /* Highlight Available Faces */
+  .ind-face.available {
+      background: rgba(88, 166, 255, 0.4);
+      border-color: rgba(88, 166, 255, 0.8);
+      box-shadow: 0 0 5px rgba(88, 166, 255, 0.5);
   }
 
-  .back-box {
-      top: 0;
-      left: 0;
-      z-index: 1;
-  }
+  .ind-front { transform: translateZ(8px); }
+  .ind-back  { transform: rotateY(180deg) translateZ(8px); }
+  .ind-right { transform: rotateY(90deg) translateZ(8px); }
+  .ind-left  { transform: rotateY(-90deg) translateZ(8px); }
+  .ind-top   { transform: rotateX(90deg) translateZ(8px); }
+  .ind-bottom{ transform: rotateX(-90deg) translateZ(8px); }
 
-  .front-box {
-      bottom: 0;
-      right: 0;
-      z-index: 2;
-  }
-
-  /* Active States */
-  .layer-indicator.is-back .back-box {
-      background: rgba(88, 166, 255, 0.8);
-      border-color: #fff;
-      z-index: 10;
-      transform: scale(1.1);
-      box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
-  }
-
-  .layer-indicator.is-front .front-box {
-      background: rgba(88, 166, 255, 0.8);
-      border-color: #fff;
-      z-index: 10;
-      transform: scale(1.1);
-      box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
+  .ind-dot {
+      position: absolute;
+      width: 4px; height: 4px;
+      background: #fff;
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 5px #fff;
   }
 
   .divider {
     width: 1px;
     height: 20px;
     background: rgba(255, 255, 255, 0.1);
-    margin: 0 0.2rem;
+    margin: 0 0.5rem;
   }
 
-  .global-toggle {
-    padding: 0.5em 1em;
-    background: rgba(68, 68, 68, 0.8);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    transition: all 0.2s ease-out;
-    cursor: pointer;
-    font-size: 0.9rem;
-    
-    /* Mobile Touch Optimization: Disable double-tap zoom delay */
-    touch-action: manipulation;
-
-    /* Dynamic lighting effects removed */
-    box-shadow: 
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      
-    transform: translateZ(0);
-    will-change: box-shadow, transform;
+  /* --- Mobile Navigation --- */
+  .layer-nav-mobile {
+     display: none; /* Hidden on desktop */
   }
 
-  .global-toggle.active {
-    background: rgba(88, 166, 255, 0.3);
-    border-color: rgba(88, 166, 255, 0.5);
-    box-shadow: 0 0 15px rgba(88, 166, 255, 0.3);
-  }
-  
-  .global-toggle:hover {
-    background: rgba(240, 245, 255, 0.15);
-    transform: translateZ(5px) scale(1.05);
-  }
-  
-  /* Mobile Improvements */
   @media (max-width: 768px) {
-    .global-controls {
-       /* Ensure it stays at top */
-       top: 0;
-       bottom: auto;
-       right: 0;
-       left: 0;
-       max-width: 100%;
-       justify-content: space-evenly;
-       padding: 0.25rem;
-    }
-    
-    .global-toggle {
-        padding: 0.5em 0.8em; /* Slightly smaller padding to fit all */
-        font-size: 0.8rem;
-        white-space: nowrap;
-    }
-    
-    .time-control .time-label {
-        display: none; /* Hide label to save space */
-    }
+      .spatial-nav-desktop {
+          display: none;
+      }
+      .spatial-nav-right {
+          display: none; /* Hide desktop nav on mobile */
+      }
+      
+      .layer-nav-mobile {
+          display: block;
+          position: fixed; /* Fixed viewport positioning */
+          inset: 0;
+          height: 100vh;
+          pointer-events: none; /* Container passes clicks */
+          z-index: 900;
+      }
 
-    /* Hide Desktop Nav */
-    .layer-nav-desktop {
-        display: none;
-    }
+      .mobile-nav-btn {
+          position: absolute;
+          pointer-events: auto; /* Buttons are clickable */
+          background: rgba(0,0,0,0.5);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.2);
+          width: 50px; height: 50px;
+          border-radius: 50%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          transition: all 0.3s ease;
+      }
 
-    /* Show and Position Mobile Nav */
-    .layer-nav-mobile {
-        display: flex;
-        position: fixed;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5rem; /* Space out the arrows */
-        background: transparent;
-        /* backdrop-filter: blur(5px); */
-        padding: 10rem 3rem 10rem 6rem; /* Very generous hit area for ease of use */
-        border-radius: 30px 0 0 30px;
-        z-index: 2000;
-        /* Ensure it's reachable */
-        pointer-events: none;
-        touch-action: none; /* Prevent browser scrolling */
-    }
+      .mobile-nav-btn.hidden {
+          opacity: 0;
+          pointer-events: none;
+      }
 
-    /* Allow interaction with the buttons inside the transparent container */
-    .layer-nav-mobile > * {
-        pointer-events: auto;
-    }
+      .pos-top { top: 80px; left: 50%; transform: translateX(-50%); }
+      .pos-bottom { bottom: 40px; left: 50%; transform: translateX(-50%); }
+      .pos-left { top: 50%; left: 20px; transform: translateY(-50%); }
+      .pos-right { top: 50%; right: 20px; transform: translateY(-50%); }
 
-    .layer-overview-icon {
-        display: block;
-        color: rgba(255, 255, 255, 0.7);
-        opacity: 0.8;
-    }
-
-    .nav-arrow {
-        width: 48px;
-        height: 48px;
-        background: rgba(0, 0, 0, 0.5); /* More visible on mobile */
-        border-radius: 50%;
-    }
-    
-    /* Keep divider if needed, or hide */
-    .divider {
-        display: none;
-    }
+      .mobile-depth-controls {
+          position: absolute;
+          bottom: 40px;
+          right: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          pointer-events: none; /* Container passes clicks */
+      }
+      
+      .mobile-depth-controls .mobile-nav-btn {
+          position: relative;
+          width: 40px; height: 40px;
+          inset: auto; transform: none;
+          pointer-events: auto;
+      }
   }
 
+  .cube-container {
+    --box-w: 80vmin;
+    --box-h: 80vmin;
+    --box-d: 80vmin;
+    width: var(--box-w);
+    height: var(--box-h);
+    perspective: 1000px;
+    margin: 0 auto;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none !important; /* Ensure passthrough */
+  }
+
+  /* Static Cube for Decor */
+  .static-cube {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateY(0deg); /* Static room alignment (No Tilt) */
+    animation: none; /* Disable spinning */
+    pointer-events: none !important;
+  }
+
+  .face {
+    position: absolute;
+    background: transparent;
+    border: 1px solid rgba(100, 200, 255, 0.15); /* More subtle, continuous lines */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* box-shadow: inset 0 0 20px rgba(100, 200, 255, 0.05); */ /* Optional: subtle glow */
+    pointer-events: none !important;
+  }
+
+  .front, .back { width: var(--box-w); height: var(--box-h); }
+  .front  { transform: rotateY(0deg) translateZ(calc(var(--box-d) / 2)); }
+  .back   { transform: rotateY(180deg) translateZ(calc(var(--box-d) / 2)); }
+  
+  .right, .left { width: var(--box-d); height: var(--box-h); }
+  .right  { transform: rotateY(90deg) translateZ(calc(var(--box-w) / 2)); }
+  .left   { transform: rotateY(-90deg) translateZ(calc(var(--box-w) / 2)); }
+  
+  .top, .bottom { width: var(--box-w); height: var(--box-d); }
+  .top    { transform: rotateX(90deg) translateZ(calc(var(--box-h) / 2)); }
+  .bottom { transform: rotateX(-90deg) translateZ(calc(var(--box-h) / 2)); }
+
+  /* Time Control */
   .time-control {
     display: flex;
     justify-content: space-between;
@@ -698,119 +888,169 @@ import Renderer from '@/components/Renderer.astro';
     gap: 1rem;
     cursor: ns-resize;
     user-select: none;
-    /* Ensure no zooming/panning interference while dragging */
     touch-action: none;
+    min-width: 100px;
   }
 
-  .time-label {
-    font-size: 0.8em;
-    opacity: 0.7;
-    font-weight: bold;
-  }
-
-  .time-value {
-    font-family: monospace;
-    font-weight: bold;
-  }
-  
-  .floating-title {
-    position: absolute;
-    top: 15%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 6rem;
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.9);
-    pointer-events: none;
-    z-index: 5;
-    text-transform: uppercase;
-    letter-spacing: 0.5rem;
-    
-    text-shadow: 
-      0 0 20px rgba(0, 0, 0, 0.5);
-    
-    transition: text-shadow 0.1s ease-out;
-    will-change: text-shadow;
-  }
-
-  /* --- Back Layer Content Styles --- */
-  .back-content {
-    /* Dimmed: Light=Black 0.3, Dark=White 0.3 */
-    color: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.3));
-    text-align: center;
-    max-width: 600px;
-    padding: 2rem;
-    /* Removed background box for cleaner wireframe integration */
-    transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .cube-container {
-    /* Define Box Dimensions (Default: Cube) */
-    --box-w: 80vmin;
-    --box-h: 80vmin;
-    --box-d: 80vmin;
-
-    width: var(--box-w);
-    height: var(--box-h);
-    perspective: 1000px;
-    margin: 0;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
-
-  /* Mobile Adjustment: Rectangular Box */
+  /* Reduce size for time/city on mobile */
   @media (max-width: 768px) {
-    .cube-container {
-        --box-w: 85vw;
-        --box-h: 60vh;
-        --box-d: 60vw;
-    }
+      .time-control {
+          gap: 0.5rem;
+          min-width: auto;
+      }
+      .time-value {
+          font-size: 0.8rem;
+      }
   }
-
-  .cube {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    transform-style: preserve-3d;
-    transform: rotateY(0deg); /* Static room alignment */
-  }
-
-  .face {
-    position: absolute;
-    background: transparent;
-    border: 2px solid rgba(100, 200, 255, 0.4); /* Thicker and brighter */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: monospace;
-    font-size: 0.8rem;
-    letter-spacing: 2px;
-    color: rgba(100, 200, 255, 0.2);
-    box-shadow: 0 0 10px rgba(100, 200, 255, 0.2), inset 0 0 20px rgba(100, 200, 255, 0.1); /* Glow */
-    backface-visibility: visible;
-  }
-
-  :global(.light-mode) .face {
-    border-color: rgba(0, 80, 160, 0.6);
-    color: rgba(0, 50, 100, 0.8);
-    box-shadow: 0 0 10px rgba(0, 80, 160, 0.1), inset 0 0 20px rgba(0, 80, 160, 0.05);
-  }
-
-  /* Face Dimensions & Transforms using variables */
-  /* Front/Back: Width x Height */
-  .front, .back { width: var(--box-w); height: var(--box-h); }
-  .front  { transform: rotateY(0deg) translateZ(calc(var(--box-d) / 2)); }
-  .back   { transform: rotateY(180deg) translateZ(calc(var(--box-d) / 2)); }
+  .time-value { font-family: monospace; font-weight: bold; }
   
-  /* Right/Left: Depth x Height */
-  .right, .left { width: var(--box-d); height: var(--box-h); }
-  .right  { transform: rotateY(90deg) translateZ(calc(var(--box-w) / 2)); }
-  .left   { transform: rotateY(-90deg) translateZ(calc(var(--box-w) / 2)); }
+  /* --- Coordinates Display --- */
+  .indicator-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+  }
+
+  .coords-display {
+      font-family: monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      white-space: nowrap;
+  }
+
+  /* --- Mini Map Navigation --- */
+  .mini-map {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      transform-style: preserve-3d;
+      /* Adjusted rotation to break linear alignment and show depth better */
+      transform: rotateX(-35deg) rotateY(35deg);
+      transition: transform 0.5s ease;
+      margin-bottom: 10px;
+  }
+
+  .mini-cube {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      top: 50%; left: 50%;
+      margin-top: -8px; margin-left: -8px; /* Center anchor */
+      transition: transform 0.3s ease, opacity 0.3s;
+      /* Fix for preserving 3d space in button */
+      display: block;
+      touch-action: manipulation; /* Improve touch response */
+      -webkit-tap-highlight-color: transparent; /* Remove gray tap box */
+      outline: none; /* Remove focus ring */
+      user-select: none;
+  }
   
-  /* Top/Bottom: Width x Depth */
-  .top, .bottom { width: var(--box-w); height: var(--box-d); }
-  .top    { transform: rotateX(90deg) translateZ(calc(var(--box-h) / 2)); }
-  .bottom { transform: rotateX(-90deg) translateZ(calc(var(--box-h) / 2)); }
+
+  /* Coordinate Mapping (Mini Scale) */
+  /* Scale: Increased to 32px for better separation */
+  /* Note: We need to combine position transform with hover scale if we want hover scale.
+     For now, we just set base position.
+  */
+  .mini-cube[data-z="1"] { transform: translate3d(0, 0, 32px); } /* Front */
+  .mini-cube[data-z="0"] { transform: translate3d(0, 0, 0); }    /* Back */
+  .mini-cube[data-x="1"] { transform: translate3d(32px, 0, 0); }  /* Right */
+
+  /* Faces */
+  .mc-face {
+      position: absolute;
+      width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-sizing: border-box;
+      backface-visibility: visible; /* See through */
+      pointer-events: none;
+      transition: all 0.3s ease;
+  }
+
+  /* Light Theme Override */
+  :global(.light-mode) .mc-face {
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+  }
+
+  .mini-cube.active .mc-face {
+      background: rgba(88, 166, 255, 0.4);
+      border-color: rgba(88, 166, 255, 0.9);
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+  }
+
+  .mc-front  { transform: rotateY(0deg) translateZ(8px); }
+  .mc-back   { transform: rotateY(180deg) translateZ(8px); }
+  .mc-right  { transform: rotateY(90deg) translateZ(8px); }
+  .mc-left   { transform: rotateY(-90deg) translateZ(8px); }
+  .mc-top    { transform: rotateX(90deg) translateZ(8px); }
+  .mc-bottom { transform: rotateX(-90deg) translateZ(8px); }
+
+  /* Mobile Specifics */
+  .mobile-map-container {
+      position: absolute;
+      /* Default (Portrait) - Bottom Center */
+      top: auto;
+      bottom: 20px;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: auto;
+  }
+
+  /* Landscape Mode - Center Right */
+  @media (orientation: landscape) {
+      .mobile-map-container {
+          top: 50%;
+          bottom: auto;
+          left: auto;
+          right: 20px;
+          transform: translateY(-50%);
+      }
+  }
+
+  /* Make it larger on mobile */
+  .mini-map.mobile-mode {
+      width: 120px;
+      height: 120px;
+      /* Match desktop rotation for consistent non-linear look */
+      transform: rotateX(-35deg) rotateY(35deg);
+  }
+
+  .mini-map.mobile-mode .mini-cube {
+      width: 36px;
+      height: 36px;
+      margin-top: -18px; margin-left: -18px;
+  }
+  
+  .mini-map.mobile-mode .mc-front  { transform: rotateY(0deg) translateZ(18px); }
+  .mini-map.mobile-mode .mc-back   { transform: rotateY(180deg) translateZ(18px); }
+  .mini-map.mobile-mode .mc-right  { transform: rotateY(90deg) translateZ(18px); }
+  .mini-map.mobile-mode .mc-left   { transform: rotateY(-90deg) translateZ(18px); }
+  .mini-map.mobile-mode .mc-top    { transform: rotateX(90deg) translateZ(18px); }
+  .mini-map.mobile-mode .mc-bottom { transform: rotateX(-90deg) translateZ(18px); }
+
+  /* Mobile Positioning Scale (Doubled: 64px) */
+  .mini-map.mobile-mode .mini-cube[data-z="1"] { transform: translate3d(0, 0, 64px); }
+  .mini-map.mobile-mode .mini-cube[data-z="0"] { transform: translate3d(0, 0, 0); }
+  .mini-map.mobile-mode .mini-cube[data-x="1"] { transform: translate3d(64px, 0, 0); }
+
+  /* Adjustments for mobile to ensure spacing */
+  .mobile-depth-controls .coords-display {
+      margin-top: -8px; /* Pull it up closer to cube if needed, or adjust spacing in parent */
+      margin-bottom: 4px;
+  }
+
 </style>

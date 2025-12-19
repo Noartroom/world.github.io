@@ -121,8 +121,8 @@ body.layer-back-active #layer-back {
 }
 
 /* Allow interaction with actual content in Back Layer */
-body.layer-back-active #layer-back .back-content {
-  pointer-events: auto !important;
+body.layer-back-active #layer-back .room-content {
+  pointer-events: none !important;
   cursor: default; /* Prevent flickering to text cursor */
   transform: translateY(-38vh); /* Move text to top to avoid blocking interaction */
   /* Active: Light=Black 1.0, Dark=White 1.0 */
@@ -130,7 +130,7 @@ body.layer-back-active #layer-back .back-content {
 }
 
 /* Smooth transition for text position matches wireframe animation */
-.back-content {
+.room-content {
   transform: translateY(0);
   transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -145,23 +145,33 @@ body.layer-back-active #layer-front {
 
 
 /* Back Layer Content Toggling */
-.description-foreground {
+.layer-foreground {
   display: none;
   font-size: 1.5rem;
   font-weight: bold;
 }
 
 /* Enable View Transitions for text morphing */
-.description-background, .description-foreground {
+.layer-background, .layer-foreground {
   view-transition-name: hero-text;
 }
 
-body.layer-back-active #layer-back .description-background {
+body.layer-back-active #layer-back .layer-background,
+body.layer-back-active #layer-right .layer-background {
   display: none;
 }
 
-body.layer-back-active #layer-back .description-foreground {
+body.layer-back-active #layer-back .layer-foreground,
+body.layer-back-active #layer-right .layer-foreground {
   display: block;
+}
+
+/* When Front Layer is Active (default state / !layer-back-active) */
+body:not(.layer-back-active) #layer-front .layer-foreground {
+  display: block;
+}
+body:not(.layer-back-active) #layer-front .layer-background {
+  display: none;
 }
 
 /* Cube "Zoom Out" Animation */
