@@ -272,12 +272,11 @@ import Renderer from '@/components/Renderer.astro';
     updateButton('nav-backward', moves.backward);
 
     const worldBgContainer = document.getElementById('world-background-container');
-  // Background: apply a simple, cheap translate to hint movement
-  const worldBgContainer = document.getElementById('world-background-container');
-  if (worldBgContainer) {
-    const tx = coords.x * -100; // vw shift per room
-    worldBgContainer.style.transform = `translate3d(${tx}vw, 0, 0)`;
-  }
+    // Background: apply a simple, cheap translate to hint movement
+    if (worldBgContainer) {
+      const tx = coords.x * -100; // vw shift per room
+      worldBgContainer.style.transform = `translate3d(${tx}vw, 0, 0)`;
+    }
 
     // 3. Update Mini Map Active State
     document.querySelectorAll('.mini-cube').forEach(cube => {
