@@ -506,7 +506,7 @@ import Renderer from '@/components/Renderer.astro';
       transform-style: preserve-3d;
       transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Sync with foreground */
       /* will-change removed to prevent Safari stacking context issues */
-      z-index: 0; /* Always behind renderer */
+      z-index: -1; /* Push behind renderer/canvas */
       pointer-events: none;
   }
 
