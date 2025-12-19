@@ -239,72 +239,6 @@ import Renderer from '@/components/Renderer.astro';
       });
   });
 
-  // Mobile Swipe Navigation (use the full viewport to make it easy to hit)
-  const swipeZone = document.querySelector('.scene-viewport') || document.getElementById('layer-nav-mobile-container');
-  if (swipeZone) {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-    let isTrackingSwipe = false;
-    let hasMoved = false;
-
-    swipeZone.addEventListener('touchstart', (e) => {
-      const t = e.changedTouches[0];
-      touchStartX = t.screenX;
-      touchStartY = t.screenY;
-      touchStartTime = Date.now();
-      isTrackingSwipe = true;
-      hasMoved = false;
-    }, { passive: true });
-
-    swipeZone.addEventListener('touchmove', (e) => {
-      if (!isTrackingSwipe) return;
-      const t = e.changedTouches[0];
-      const dx = t.screenX - touchStartX;
-      const dy = t.screenY - touchStartY;
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        hasMoved = true;
-        // Prevent pull-to-refresh/overscroll once a swipe is detected
-        if (e.cancelable) e.preventDefault();
-      }
-    }, { passive: false });
-
-    swipeZone.addEventListener('touchend', (e) => {
-      if (!isTrackingSwipe) return;
-      isTrackingSwipe = false;
-      const t = e.changedTouches[0];
-      const dx = t.screenX - touchStartX;
-      const dy = t.screenY - touchStartY;
-      const dt = Date.now() - touchStartTime;
-
-      const minDist = 10; // horizontal threshold
-      const verticalMinDist = 6; // extra-easy vertical detection
-      const maxTime = 1200; // allow slower, deliberate swipes
-      if (dt > maxTime) return;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-      if (!hasMoved && absDx < minDist && absDy < verticalMinDist) return;
-
-      const current = activeLayer.get();
-      const target = { ...current };
-
-      const verticalBias = 0.5; // favor vertical intent even more
-      const isVertical = absDy >= verticalMinDist && absDy * verticalBias > absDx;
-
-      if (!isVertical) {
-        // Horizontal swipe
-        target.x = current.x + (dx < 0 ? -1 : 1);
-      } else {
-        // Vertical swipe -> map to z depth (swapped)
-        target.z = current.z + (dy < 0 ? 1 : -1); // up = outward (+z), down = inward (-z)
-      }
-
-      if (isLayerValid(target.x, target.y, target.z)) {
-        activeLayer.set(target);
-      }
-    }, { passive: true });
-  }
-
   // Subscribe to layer changes
   activeLayer.subscribe(coords => {
     const isBack = coords.z === 0;
@@ -382,8 +316,6 @@ import Renderer from '@/components/Renderer.astro';
 
   const timeDisplay = document.getElementById('time-display');
   const timeValue = timeDisplay?.querySelector('.time-value');
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const city = (timeZone.split('/').pop() || 'UTC').replace(/_/g, ' ').toUpperCase();
   const getCurrentWallClockHours = () => {
     const now = new Date();
     return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600 + now.getMilliseconds() / 3600000;
@@ -391,7 +323,7 @@ import Renderer from '@/components/Renderer.astro';
   function formatTime(hours) {
     const h = Math.floor(hours);
     const m = Math.floor((hours - h) * 60);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${city}`;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
   timeStore.subscribe(value => {
@@ -1006,8 +938,8 @@ main {
       width: 60px;
       height: 60px;
       transform-style: preserve-3d; /* restore cube visualization */
-      /* Adjusted rotation for top-down L-shape view */
-      transform: rotateX(60deg) rotateZ(45deg);
+      /* Sideways view without diagonal tilt */
+      transform: rotateX(0deg) rotateY(-90deg);
       transition: transform 0.5s ease;
       margin-bottom: 10px;
   }
@@ -1114,8 +1046,8 @@ main {
       width: 120px;
       height: 120px;
       transform-style: preserve-3d; /* restore cube visualization */
-      /* Match desktop rotation */
-      transform: rotateX(60deg) rotateZ(45deg);
+      /* Match desktop sideways view without diagonal tilt */
+      transform: rotateX(0deg) rotateY(-90deg);
   }
 
   .mini-map.mobile-mode .mini-cube {
