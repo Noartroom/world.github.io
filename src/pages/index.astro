@@ -113,6 +113,9 @@ import Renderer from '@/components/Renderer.astro';
         <div class="divider"></div>
 
         <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24" aria-valuenow="12" aria-valuetext="12:00 UTC">
+          <div class="time-visual" id="time-visual" aria-hidden="true">
+            <div class="time-visual-orb"></div>
+          </div>
           <span class="time-value">12:00</span>
         </div>
       </nav>
@@ -316,6 +319,8 @@ import Renderer from '@/components/Renderer.astro';
 
   const timeDisplay = document.getElementById('time-display');
   const timeValue = timeDisplay?.querySelector('.time-value');
+  const timeVisual = timeDisplay?.querySelector('.time-visual') as HTMLElement | null;
+  const timeVisualOrb = timeVisual?.querySelector('.time-visual-orb') as HTMLElement | null;
   const getCurrentWallClockHours = () => {
     const now = new Date();
     return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600 + now.getMilliseconds() / 3600000;
@@ -326,6 +331,79 @@ import Renderer from '@/components/Renderer.astro';
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const lerpColor = (c1: [number, number, number], c2: [number, number, number], t: number) => {
+    return [
+      Math.round(lerp(c1[0], c2[0], t)),
+      Math.round(lerp(c1[1], c2[1], t)),
+      Math.round(lerp(c1[2], c2[2], t)),
+    ];
+  };
+
+  function sampleSky(hours: number) {
+    // Keyframe palette across the day; hours wrap 0-24
+    const stops = [
+      { hour: 0,  top: [10, 16, 40], bottom: [6, 10, 26], orb: [170, 190, 255] },   // night
+      { hour: 5,  top: [30, 46, 92], bottom: [86, 70, 108], orb: [255, 200, 140] }, // dawn
+      { hour: 8,  top: [108, 166, 232], bottom: [194, 226, 255], orb: [255, 225, 180] }, // morning
+      { hour: 12, top: [130, 192, 255], bottom: [208, 236, 255], orb: [255, 232, 190] }, // noon
+      { hour: 17, top: [255, 178, 128], bottom: [92, 52, 104], orb: [255, 170, 120] }, // dusk
+      { hour: 20, top: [18, 24, 62], bottom: [7, 9, 28], orb: [180, 200, 255] },     // evening
+      { hour: 24, top: [10, 16, 40], bottom: [6, 10, 26], orb: [170, 190, 255] },    // wrap to night
+    ];
+
+    let i = stops.findIndex((stop, idx) => hours >= stop.hour && hours < stops[idx + 1]?.hour);
+    if (i === -1) i = stops.length - 2; // between last and wrap
+    const a = stops[i];
+    const b = stops[i + 1] ?? stops[0];
+    const span = (b.hour - a.hour) || 24;
+    const t = ((hours - a.hour + 24) % 24) / span;
+
+    return {
+      top: lerpColor(a.top as [number, number, number], b.top as [number, number, number], t),
+      bottom: lerpColor(a.bottom as [number, number, number], b.bottom as [number, number, number], t),
+      orb: lerpColor(a.orb as [number, number, number], b.orb as [number, number, number], t),
+    };
+  }
+
+  function updateTimeVisual(hours: number) {
+    if (!timeVisual || !timeVisualOrb) return;
+
+    const palette = sampleSky(hours);
+
+    // Sun visibility peaks at noon; zero at 6 and 18
+    const sunPhase = (hours - 6) / 12;
+    const sunAltitude = sunPhase >= 0 && sunPhase <= 1 ? Math.sin(Math.PI * sunPhase) : 0;
+    const sunStrength = clamp01(sunAltitude);
+    const sunX = clamp01(sunPhase);
+    const sunY = 0.75 - sunStrength * 0.5; // lower when higher in sky
+
+    // Moon peaks around midnight; zero near 6 and 18
+    const nightPhase = hours >= 18 ? (hours - 18) / 12 : (hours + 6) / 12;
+    const moonAltitude = nightPhase >= 0 && nightPhase <= 1 ? Math.sin(Math.PI * nightPhase) : 0;
+    const moonStrength = clamp01(moonAltitude);
+    const moonX = clamp01(nightPhase);
+    const moonY = 0.65 - moonStrength * 0.35;
+
+    const total = sunStrength + moonStrength || 1;
+    const orbX = (sunStrength * (0.12 + 0.76 * sunX) + moonStrength * (0.12 + 0.76 * moonX)) / total;
+    const orbY = (sunStrength * sunY + moonStrength * moonY) / total;
+    const orbColor = lerpColor([255, 214, 120], [185, 210, 255], moonStrength / total);
+
+    const skyTop = `rgb(${palette.top.join(',')})`;
+    const skyBottom = `rgb(${palette.bottom.join(',')})`;
+    timeVisual.style.setProperty('--tv-sky-top', skyTop);
+    timeVisual.style.setProperty('--tv-sky-bottom', skyBottom);
+    timeVisual.style.setProperty('--tv-orb-x', `${(orbX * 100).toFixed(1)}%`);
+    timeVisual.style.setProperty('--tv-orb-y', `${(orbY * 100).toFixed(1)}%`);
+    timeVisual.style.setProperty('--tv-stars-opacity', moonStrength.toFixed(2));
+
+    const orb = `rgb(${orbColor.join(',')})`;
+    timeVisualOrb.style.background = orb;
+    timeVisualOrb.style.boxShadow = `0 0 6px 0 ${orb}`;
+  }
+
   timeStore.subscribe(value => {
     if (timeValue) {
       timeValue.textContent = formatTime(value);
@@ -334,7 +412,9 @@ import Renderer from '@/components/Renderer.astro';
       timeDisplay.setAttribute('aria-valuenow', value.toString());
       timeDisplay.setAttribute('aria-valuetext', formatTime(value));
     }
+    updateTimeVisual(value);
   });
+  updateTimeVisual(timeStore.get());
 
   const AUTO_TIME_INTERVAL_MS = 60_000;
   let timeAutoTick: number | null = null;
@@ -913,6 +993,40 @@ main {
       }
   }
   .time-value { font-family: monospace; font-weight: bold; }
+  .time-visual {
+      position: relative;
+      width: 48px;
+      height: 20px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--tv-sky-top, #0b1c3f), var(--tv-sky-bottom, #060c22));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+      flex-shrink: 0;
+      transition: background 0.6s ease;
+  }
+  .time-visual::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 60% 60%, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 80% 20%, rgba(255,255,255,0.7), transparent);
+      opacity: var(--tv-stars-opacity, 0);
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+  }
+  .time-visual-orb {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #f5d76e;
+      box-shadow: 0 0 6px 0 #f5d76e;
+      transform: translate(calc(var(--tv-orb-x, 50%) - 50%), calc(var(--tv-orb-y, 50%) - 50%));
+      transition: transform 0.6s ease, background 0.6s ease, box-shadow 0.6s ease;
+      will-change: transform;
+    }
   
   /* --- Coordinates Display --- */
   .indicator-stack {
@@ -962,6 +1076,14 @@ main {
       -webkit-tap-highlight-color: transparent; /* Remove gray tap box */
       outline: none; /* Remove focus ring */
       user-select: none;
+  }
+  /* Larger hit target without changing visual size */
+  .mini-cube::after {
+      content: '';
+      position: absolute;
+      inset: -8px; /* expands clickable area */
+      background: transparent;
+      pointer-events: auto;
   }
   
 
@@ -1054,6 +1176,10 @@ main {
       width: 36px;
       height: 36px;
       margin-top: -18px; margin-left: -18px;
+  }
+  /* Increase mobile hit target further */
+  .mini-map.mobile-mode .mini-cube::after {
+      inset: -12px;
   }
   
   .mini-map.mobile-mode .mc-front  { transform: rotateY(0deg) translateZ(18px); }
