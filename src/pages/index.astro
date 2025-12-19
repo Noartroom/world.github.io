@@ -272,7 +272,12 @@ import Renderer from '@/components/Renderer.astro';
     updateButton('nav-backward', moves.backward);
 
     const worldBgContainer = document.getElementById('world-background-container');
-  // Background stays static; no transform on layer change
+  // Background: apply a simple, cheap translate to hint movement
+  const worldBgContainer = document.getElementById('world-background-container');
+  if (worldBgContainer) {
+    const tx = coords.x * -100; // vw shift per room
+    worldBgContainer.style.transform = `translate3d(${tx}vw, 0, 0)`;
+  }
 
     // 3. Update Mini Map Active State
     document.querySelectorAll('.mini-cube').forEach(cube => {
@@ -454,7 +459,7 @@ import Renderer from '@/components/Renderer.astro';
       top: 0; left: 0;
       width: 100%; height: 100%;
       transform-style: flat; /* Flatten to reduce overdraw */
-      transition: none; /* Keep static to avoid visual sliding */
+      transition: transform 0.35s ease-out; /* lightweight translate only */
       /* will-change removed to prevent Safari stacking context issues */
       z-index: -1; /* Behind renderer */
       pointer-events: none;
