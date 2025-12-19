@@ -50,43 +50,6 @@ import Renderer from '@/components/Renderer.astro';
       <div class="renderer-layer">
         <Renderer />
       </div>
-
-      <!-- Layer 1: Foreground World (Text/UI) -->
-      <div id="world-container">
-        
-        <!-- Layer (0,0,0) [Back/Deep] -->
-        <div id="layer-back" class="world-layer" data-x="0" data-y="0" data-z="0">
-          <div class="room-content">
-            <div class="layer-foreground">
-                <!-- <h2>Layer 0</h2>
-                <p class="description-background">Deep Layer</p> -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Layer (1,0,0) [Right] -->
-        <div id="layer-right" class="world-layer" data-x="1" data-y="0" data-z="0">
-           <div class="room-content">
-              <div class="layer-foreground">
-                 <div class="content-box">
-                     <!-- <h2 style="view-transition-name: layer-title;">Right Wing</h2>
-                     <p style="view-transition-name: layer-coords;">Layer (1,0,0)</p> -->
-                 </div>
-              </div>
-           </div>
-        </div>
-
-        <!-- Layer (0,0,1) [Front/Top] -->
-        <div id="layer-front" class="world-layer" data-x="0" data-y="0" data-z="1">
-          <div class="room-content">
-              <div class="layer-foreground">
-                 <!-- <h2>Top Layer</h2>
-                 <h1 id="page-title" class="floating-title">Room 1</h1> -->
-              </div>
-          </div>
-        </div>
-        
-      </div>
     </div>
 
     <!-- Persistent UI: Always on top (Buttons) -->
@@ -308,21 +271,8 @@ import Renderer from '@/components/Renderer.astro';
     updateButton('nav-forward', moves.forward);
     updateButton('nav-backward', moves.backward);
 
-    // 2. Update 3D World Transform
-    const worldContainer = document.getElementById('world-container');
     const worldBgContainer = document.getElementById('world-background-container');
-    
-    const tx = coords.x * -100; // vw
-    const ty = coords.y * -100; // vh
-    const tz = coords.z * -500; // px
-    const transform = `translate3d(${tx}vw, ${ty}vh, ${tz}px)`;
-
-    if (worldContainer) {
-        worldContainer.style.transform = transform;
-    }
-    if (worldBgContainer) {
-        worldBgContainer.style.transform = transform;
-    }
+  // Background stays static; no transform on layer change
 
     // 3. Update Mini Map Active State
     document.querySelectorAll('.mini-cube').forEach(cube => {
@@ -494,19 +444,8 @@ import Renderer from '@/components/Renderer.astro';
     width: 100%;
     height: 100%;
     perspective: 1000px;
-    transform-style: preserve-3d;
+    transform-style: flat; /* flatten to avoid nested 3D over canvas */
     overflow: hidden;
-  }
-
-  /* --- 3D World Container (Foreground Text) --- */
-  #world-container {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      transform-style: preserve-3d;
-      transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Smooth Transition */
-      z-index: 2; /* Above renderer */
-      pointer-events: none; /* Pass clicks to renderer */
   }
 
   /* --- 3D Background Container (Lines) --- */
@@ -514,8 +453,8 @@ import Renderer from '@/components/Renderer.astro';
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      transform-style: preserve-3d;
-      transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); /* Sync with foreground */
+      transform-style: flat; /* Flatten to reduce overdraw */
+      transition: none; /* Keep static to avoid visual sliding */
       /* will-change removed to prevent Safari stacking context issues */
       z-index: -1; /* Behind renderer */
       pointer-events: none;
@@ -535,13 +474,7 @@ import Renderer from '@/components/Renderer.astro';
     left: 0;
     width: 100vw;
     height: 100vh;
-    /* backface-visibility removed */
     pointer-events: none;
-  }
-  
-  /* Allow interaction with specific children */
-  .world-layer > * {
-      pointer-events: none; /* Default to pass-through */
   }
 
   /* Room Content Wrapper */
@@ -607,23 +540,9 @@ import Renderer from '@/components/Renderer.astro';
 
   /* --- Layer Placement --- */
   
-  /* Layer (0,0,0) - Back/Deep */
-  #layer-back, #bg-layer-back {
-      transform: translate3d(0, 0, 0px);
-  }
-
-  /* Layer (1,0,0) - Right */
-  #layer-right {
-      transform: translate3d(100vw, 0, 0px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-  }
-
-  /* Layer (0,0,1) - Front/Top */
-  #layer-front, #bg-layer-front {
-      transform: translate3d(0, 0, 500px);
-  }
+  /* Background layers remain static in Z (no translate) */
+  #bg-layer-back { transform: none; }
+  #bg-layer-front { transform: none; }
 
   /* --- Persistent UI --- */
   #layer-persistent {
@@ -875,45 +794,21 @@ import Renderer from '@/components/Renderer.astro';
 
   .face {
     position: absolute;
-    /* Glassy/Immersive Room Style */
-    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+    background: transparent; /* Strip gradients */
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 0 30px rgba(0,0,0,0.1) inset; /* Soft depth */
-    
-    /* Ensure no interaction blocking */
     pointer-events: none !important;
     user-select: none;
-    
     display: flex;
     justify-content: center;
     align-items: center;
-    
-    /* Cross-browser 3D fix */
     -webkit-backface-visibility: visible;
     backface-visibility: visible;
+    box-shadow: none !important; /* Strip inset shadows */
   }
 
-  /* Grid/Floor Pattern for Bottom Face */
-  .face.bottom {
-      background: 
-          linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-      background-size: 10vmin 10vmin;
-      background-position: center;
-  }
-
-  /* Light Theme Override for Room */
   :global(.light-mode) .face {
-    background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.005) 100%);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 0 30px rgba(0,0,0,0.05) inset;
-  }
-
-  :global(.light-mode) .face.bottom {
-      background: 
-          linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
-      background-size: 10vmin 10vmin;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: transparent;
   }
 
   .front, .back { width: var(--box-w); height: var(--box-h); }
@@ -975,7 +870,7 @@ import Renderer from '@/components/Renderer.astro';
       position: relative;
       width: 60px;
       height: 60px;
-      transform-style: preserve-3d;
+      transform-style: flat; /* flatten to reduce 3D nesting cost */
       /* Adjusted rotation for top-down L-shape view */
       transform: rotateX(60deg) rotateZ(45deg);
       transition: transform 0.5s ease;
@@ -1073,6 +968,7 @@ import Renderer from '@/components/Renderer.astro';
   .mini-map.mobile-mode {
       width: 120px;
       height: 120px;
+      transform-style: flat;
       /* Match desktop rotation */
       transform: rotateX(60deg) rotateZ(45deg);
   }
