@@ -938,8 +938,8 @@ main {
       width: 60px;
       height: 60px;
       transform-style: preserve-3d; /* restore cube visualization */
-      /* Sideways view without diagonal tilt */
-      transform: rotateX(0deg) rotateY(-90deg);
+      /* Sideways, but keep 3D depth (less diagonal than original) */
+      transform: rotateX(20deg) rotateY(-55deg);
       transition: transform 0.5s ease;
       margin-bottom: 10px;
   }
@@ -1046,8 +1046,8 @@ main {
       width: 120px;
       height: 120px;
       transform-style: preserve-3d; /* restore cube visualization */
-      /* Match desktop sideways view without diagonal tilt */
-      transform: rotateX(0deg) rotateY(-90deg);
+      /* Match desktop sideways view with preserved 3D depth */
+      transform: rotateX(20deg) rotateY(-55deg);
   }
 
   .mini-map.mobile-mode .mini-cube {
