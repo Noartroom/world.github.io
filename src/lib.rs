@@ -149,8 +149,12 @@ impl State {
             let far_world = vec3(far_point.x, far_point.y, far_point.z) / far_point.w;
             let ray_dir = (far_world - near_world).normalize();
             
-            let spawn_distance = self.game.model_extent * 1.5;
-            let spawn_position = near_world + ray_dir * spawn_distance;
+            // Spawn farther away from the camera so the blob does not fill the viewport,
+            // but still along the ray that aims at the model.
+            let base_distance = self.game.model_extent * 2.5; // near model scale
+            let preferred_distance = self.game.camera_radius * 1.2; // push beyond focal radius
+            let spawn_distance = base_distance.max(preferred_distance);
+            let spawn_position = cam_pos + ray_dir * spawn_distance;
 
             self.game.blob_position = spawn_position;
             self.game.blob_prev_position = spawn_position;
