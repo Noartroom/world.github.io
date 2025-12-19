@@ -259,8 +259,8 @@ import Renderer from '@/components/Renderer.astro';
       const dy = t.screenY - touchStartY;
       const dt = Date.now() - touchStartTime;
 
-      const minDist = 30;
-      const maxTime = 600;
+      const minDist = 18; // easier to trigger on mobile
+      const maxTime = 800; // allow slightly slower swipes
       if (dt > maxTime) return;
       if (Math.abs(dx) < minDist && Math.abs(dy) < minDist) return;
 
@@ -375,6 +375,36 @@ import Renderer from '@/components/Renderer.astro';
       timeDisplay.setAttribute('aria-valuetext', formatTime(value));
     }
   });
+
+  const AUTO_TIME_INTERVAL_MS = 60_000;
+  let timeAutoTick: number | null = null;
+  let lastAutoTick = Date.now();
+
+  const startAutoTimeUpdates = () => {
+    if (timeAutoTick !== null) return;
+    timeAutoTick = window.setInterval(() => {
+      const now = Date.now();
+      const elapsedMinutes = (now - lastAutoTick) / 60000; // protects against background throttling
+      lastAutoTick = now;
+      changeTime(elapsedMinutes);
+    }, AUTO_TIME_INTERVAL_MS);
+  };
+
+  const stopAutoTimeUpdates = () => {
+    if (timeAutoTick !== null) {
+      clearInterval(timeAutoTick);
+      timeAutoTick = null;
+    }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      lastAutoTick = Date.now();
+    }
+  });
+
+  startAutoTimeUpdates();
+  window.addEventListener('beforeunload', stopAutoTimeUpdates);
 
   if (timeDisplay) {
     timeDisplay.addEventListener('wheel', (e) => {
