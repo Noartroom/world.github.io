@@ -259,15 +259,20 @@ import Renderer from '@/components/Renderer.astro';
       const dy = t.screenY - touchStartY;
       const dt = Date.now() - touchStartTime;
 
-      const minDist = 18; // easier to trigger on mobile
-      const maxTime = 800; // allow slightly slower swipes
+      const minDist = 12; // more generous detection
+      const maxTime = 1000; // allow slower, deliberate swipes
       if (dt > maxTime) return;
-      if (Math.abs(dx) < minDist && Math.abs(dy) < minDist) return;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx < minDist && absDy < minDist) return;
 
       const current = activeLayer.get();
       const target = { ...current };
 
-      if (Math.abs(dx) > Math.abs(dy)) {
+      const verticalBias = 0.8; // favor vertical intent slightly
+      const isVertical = absDy * verticalBias > absDx;
+
+      if (!isVertical) {
         // Horizontal swipe
         target.x = current.x + (dx < 0 ? -1 : 1);
       } else {
