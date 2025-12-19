@@ -1060,12 +1060,12 @@ import Renderer from '@/components/Renderer.astro';
   /* Mobile Specifics */
   .mobile-map-container {
       position: absolute;
-    /* Position on the right, centered vertically for all orientations */
+    /* Centered on screen for all orientations */
     top: 50%;
+    left: 50%;
+    right: auto;
     bottom: auto;
-    left: auto;
-    right: 20px;
-    transform: translateY(-50%);
+    transform: translate(-50%, -50%);
       display: flex;
       flex-direction: column;
       align-items: center;

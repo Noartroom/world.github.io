@@ -13,7 +13,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   
   <!-- Low Power Mode Fallback -->
   <div id="fallback-container" class="fallback-container hidden">
-      <img id="fallback-image" src="/models/fallback-light.svg" alt="3D Model Fallback (Low Power Mode)" />
       <div class="fallback-controls">
           <p>Low Power Mode Enabled</p>
           <button id="force-3d-btn" class="force-btn">Enable 3D (High Performance)</button>
@@ -67,7 +66,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   // DOM Elemente
   const canvas: HTMLCanvasElement | null = CANVAS_ID ? document.getElementById(CANVAS_ID) as HTMLCanvasElement : null;
   const fallbackContainer = document.getElementById('fallback-container');
-  const fallbackImage = document.getElementById('fallback-image') as HTMLImageElement;
   const force3dBtn = document.getElementById('force-3d-btn');
 
   // Input State
@@ -469,19 +467,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       if (canvas) canvas.style.display = 'none';
       if (fallbackContainer) fallbackContainer.classList.remove('hidden');
 
-      // Sync Fallback Theme
-      themeUnsub = onSet(activeModel, ({ newValue }) => {
-          updateFallbackImage(newValue);
-      });
-      updateFallbackImage(activeModel.get());
-  }
-
-  function updateFallbackImage(currentModel: string) {
-      if (fallbackImage) {
-          fallbackImage.src = currentModel === 'dark'
-              ? '/models/fallback-dark.svg'
-              : '/models/fallback-light.svg';
-      }
   }
 
   if (force3dBtn) {
@@ -836,13 +821,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     display: none;
 }
 
-#fallback-image {
-    width: 60%;
-    height: auto;
-    max-width: 600px;
-    opacity: 0.8;
-}
-
 .fallback-controls {
     margin-top: 2rem;
     text-align: center;
@@ -862,12 +840,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
 /* Mobile Landscape Fixes */
 @media (max-height: 600px) and (orientation: landscape) {
-    #fallback-image {
-        width: auto;
-        height: 40vh; /* Constraint by height */
-        max-height: 180px;
-    }
-    
     .fallback-controls {
         margin-top: 0.5rem;
     }
