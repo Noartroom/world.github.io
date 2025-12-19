@@ -790,22 +790,45 @@ import Renderer from '@/components/Renderer.astro';
 
   .face {
     position: absolute;
-    background: transparent;
+    /* Glassy/Immersive Room Style */
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: none !important;
-    outline: none !important;
+    box-shadow: 0 0 30px rgba(0,0,0,0.1) inset; /* Soft depth */
+    
+    /* Ensure no interaction blocking */
+    pointer-events: none !important;
+    user-select: none;
+    
     display: flex;
     justify-content: center;
     align-items: center;
-    pointer-events: none !important;
-    /* backface-visibility removed to prevent wireframe glitching */
-    -webkit-backface-visibility: visible; /* Ensure consistent behavior */
+    
+    /* Cross-browser 3D fix */
+    -webkit-backface-visibility: visible;
     backface-visibility: visible;
   }
 
-  /* Light Theme Override for Room Lines */
+  /* Grid/Floor Pattern for Bottom Face */
+  .face.bottom {
+      background: 
+          linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 10vmin 10vmin;
+      background-position: center;
+  }
+
+  /* Light Theme Override for Room */
   :global(.light-mode) .face {
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.005) 100%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 30px rgba(0,0,0,0.05) inset;
+  }
+
+  :global(.light-mode) .face.bottom {
+      background: 
+          linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+      background-size: 10vmin 10vmin;
   }
 
   .front, .back { width: var(--box-w); height: var(--box-h); }
@@ -868,8 +891,8 @@ import Renderer from '@/components/Renderer.astro';
       width: 60px;
       height: 60px;
       transform-style: preserve-3d;
-      /* Rotation reduced to show true depth "in front" rather than diagonal */
-      transform: rotateX(-30deg) rotateY(15deg);
+      /* Adjusted rotation for top-down L-shape view */
+      transform: rotateX(60deg) rotateZ(45deg);
       transition: transform 0.5s ease;
       margin-bottom: 10px;
   }
@@ -966,7 +989,7 @@ import Renderer from '@/components/Renderer.astro';
       width: 120px;
       height: 120px;
       /* Match desktop rotation */
-      transform: rotateX(-30deg) rotateY(15deg);
+      transform: rotateX(60deg) rotateZ(45deg);
   }
 
   .mini-map.mobile-mode .mini-cube {
