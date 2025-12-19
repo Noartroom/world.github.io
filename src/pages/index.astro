@@ -259,18 +259,19 @@ import Renderer from '@/components/Renderer.astro';
       const dy = t.screenY - touchStartY;
       const dt = Date.now() - touchStartTime;
 
-      const minDist = 12; // more generous detection
+      const minDist = 12; // horizontal threshold
+      const verticalMinDist = 8; // extra-easy vertical detection
       const maxTime = 1000; // allow slower, deliberate swipes
       if (dt > maxTime) return;
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
-      if (absDx < minDist && absDy < minDist) return;
+      if (absDx < minDist && absDy < verticalMinDist) return;
 
       const current = activeLayer.get();
       const target = { ...current };
 
-      const verticalBias = 0.8; // favor vertical intent slightly
-      const isVertical = absDy * verticalBias > absDx;
+      const verticalBias = 0.6; // strongly favor vertical intent
+      const isVertical = absDy >= verticalMinDist && absDy * verticalBias > absDx;
 
       if (!isVertical) {
         // Horizontal swipe
@@ -365,6 +366,10 @@ import Renderer from '@/components/Renderer.astro';
   const timeValue = timeDisplay?.querySelector('.time-value');
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const city = (timeZone.split('/').pop() || 'UTC').replace(/_/g, ' ').toUpperCase();
+  const getCurrentWallClockHours = () => {
+    const now = new Date();
+    return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600 + now.getMilliseconds() / 3600000;
+  };
   function formatTime(hours) {
     const h = Math.floor(hours);
     const m = Math.floor((hours - h) * 60);
@@ -383,16 +388,25 @@ import Renderer from '@/components/Renderer.astro';
 
   const AUTO_TIME_INTERVAL_MS = 60_000;
   let timeAutoTick: number | null = null;
-  let lastAutoTick = Date.now();
+  let timeAlignTimeout: number | null = null;
+  let timeOffset = timeStore.get() - getCurrentWallClockHours(); // preserve user-set offset relative to real clock
+  let isAutoTick = false;
+
+  const applyAutoTime = () => {
+    isAutoTick = true;
+    timeStore.set(getCurrentWallClockHours() + timeOffset);
+    isAutoTick = false;
+  };
 
   const startAutoTimeUpdates = () => {
     if (timeAutoTick !== null) return;
-    timeAutoTick = window.setInterval(() => {
-      const now = Date.now();
-      const elapsedMinutes = (now - lastAutoTick) / 60000; // protects against background throttling
-      lastAutoTick = now;
-      changeTime(elapsedMinutes);
-    }, AUTO_TIME_INTERVAL_MS);
+    // initial sync
+    applyAutoTime();
+    const alignDelay = AUTO_TIME_INTERVAL_MS - (Date.now() % AUTO_TIME_INTERVAL_MS);
+    timeAlignTimeout = window.setTimeout(() => {
+      applyAutoTime();
+      timeAutoTick = window.setInterval(applyAutoTime, AUTO_TIME_INTERVAL_MS);
+    }, alignDelay);
   };
 
   const stopAutoTimeUpdates = () => {
@@ -400,11 +414,15 @@ import Renderer from '@/components/Renderer.astro';
       clearInterval(timeAutoTick);
       timeAutoTick = null;
     }
+    if (timeAlignTimeout !== null) {
+      clearTimeout(timeAlignTimeout);
+      timeAlignTimeout = null;
+    }
   };
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      lastAutoTick = Date.now();
+      applyAutoTime();
     }
   });
 
