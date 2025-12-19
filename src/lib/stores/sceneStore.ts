@@ -56,7 +56,7 @@ export function getAvailableMoves(current: LayerCoordinate) {
         down: isLayerValid(current.x, current.y - 1, current.z),    // -Y
         left: isLayerValid(current.x - 1, current.y, current.z),    // -X
         right: isLayerValid(current.x + 1, current.y, current.z),   // +X
-        forward: isLayerValid(current.x, current.y, current.z - 1), // -Z (Deeper)
-        backward: isLayerValid(current.x, current.y, current.z + 1) // +Z (Out)
+        forward: isLayerValid(current.x, current.y, current.z + 1), // +Z (Out)
+        backward: isLayerValid(current.x, current.y, current.z - 1) // -Z (Deep)
     };
 }
