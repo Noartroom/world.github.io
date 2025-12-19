@@ -5,10 +5,7 @@ import Renderer from '@/components/Renderer.astro';
 <Layout title="Astro Prototype">
   <main>
     <!-- Layer 0: The 3D Scene (Renderer/Model) -->
-    <!-- Renderer sits on its own layer between background (lines) and foreground (text) -->
-    <div id="layer-middle" class="renderer-wrapper">
-      <Renderer />
-    </div>
+    <Renderer />
 
     <div class="scene-viewport">
     <!-- Layer -1: Background World (Lines/Structure) -->
@@ -31,24 +28,6 @@ import Renderer from '@/components/Renderer.astro';
                  </div>
              </div>
           </div>
-        </div>
-
-        <!-- Layer (1,0,0) [Right] -->
-        <div id="bg-layer-right" class="world-layer" data-x="1" data-y="0" data-z="0">
-           <div class="room-content">
-              <div class="layer-background">
-                 <div class="cube-container room-visual">
-                    <div class="cube static-cube">
-                      <div class="face front"></div>
-                      <div class="face back"></div>
-                      <div class="face right"></div>
-                      <div class="face left"></div>
-                      <div class="face top"></div>
-                      <div class="face bottom"></div>
-                    </div>
-                 </div>
-              </div>
-           </div>
         </div>
 
         <!-- Layer (0,0,1) [Front/Top] -->
@@ -506,21 +485,6 @@ import Renderer from '@/components/Renderer.astro';
         transform: none !important;
     }
 
-    /* Ensure renderer has clear visibility */
-    .renderer-wrapper {
-        z-index: 1;
-        background: transparent; 
-    }
-  }
-
-  /* --- Renderer (Static Background) --- */
-  .renderer-wrapper {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1; /* Between background lines (0) and foreground UI (2) */
-      pointer-events: auto; /* Always interactive */
   }
 
   /* --- 3D World Container (Foreground Text) --- */
@@ -631,9 +595,8 @@ import Renderer from '@/components/Renderer.astro';
   }
 
   /* Layer (1,0,0) - Right */
-  #layer-right, #bg-layer-right {
+  #layer-right {
       transform: translate3d(100vw, 0, 0px);
-      /* No Background, Wireframe aesthetic */
       display: flex;
       justify-content: center;
       align-items: center;
