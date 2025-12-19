@@ -275,7 +275,7 @@ import Renderer from '@/components/Renderer.astro';
     // Background: apply a simple, cheap translate to hint movement
     if (worldBgContainer) {
       const tx = coords.x * -100; // vw shift per room
-      worldBgContainer.style.transform = `translate3d(${tx}vw, 0, 0)`;
+      worldBgContainer.style.transform = `translateX(${tx}vw)`;
     }
 
     // 3. Update Mini Map Active State
