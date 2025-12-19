@@ -870,7 +870,7 @@ import Renderer from '@/components/Renderer.astro';
       position: relative;
       width: 60px;
       height: 60px;
-      transform-style: flat; /* flatten to reduce 3D nesting cost */
+      transform-style: preserve-3d; /* restore cube visualization */
       /* Adjusted rotation for top-down L-shape view */
       transform: rotateX(60deg) rotateZ(45deg);
       transition: transform 0.5s ease;
@@ -968,7 +968,7 @@ import Renderer from '@/components/Renderer.astro';
   .mini-map.mobile-mode {
       width: 120px;
       height: 120px;
-      transform-style: flat;
+      transform-style: preserve-3d; /* restore cube visualization */
       /* Match desktop rotation */
       transform: rotateX(60deg) rotateZ(45deg);
   }
