@@ -239,38 +239,56 @@ import Renderer from '@/components/Renderer.astro';
       });
   });
 
-  // Mobile Swipe Navigation (around nav-layer)
-  const swipeZone = document.getElementById('layer-nav-mobile-container');
+  // Mobile Swipe Navigation (use the full viewport to make it easy to hit)
+  const swipeZone = document.querySelector('.scene-viewport') || document.getElementById('layer-nav-mobile-container');
   if (swipeZone) {
     let touchStartX = 0;
     let touchStartY = 0;
     let touchStartTime = 0;
+    let isTrackingSwipe = false;
+    let hasMoved = false;
 
     swipeZone.addEventListener('touchstart', (e) => {
       const t = e.changedTouches[0];
       touchStartX = t.screenX;
       touchStartY = t.screenY;
       touchStartTime = Date.now();
+      isTrackingSwipe = true;
+      hasMoved = false;
     }, { passive: true });
 
+    swipeZone.addEventListener('touchmove', (e) => {
+      if (!isTrackingSwipe) return;
+      const t = e.changedTouches[0];
+      const dx = t.screenX - touchStartX;
+      const dy = t.screenY - touchStartY;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        hasMoved = true;
+        // Prevent pull-to-refresh/overscroll once a swipe is detected
+        if (e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
+
     swipeZone.addEventListener('touchend', (e) => {
+      if (!isTrackingSwipe) return;
+      isTrackingSwipe = false;
       const t = e.changedTouches[0];
       const dx = t.screenX - touchStartX;
       const dy = t.screenY - touchStartY;
       const dt = Date.now() - touchStartTime;
 
-      const minDist = 12; // horizontal threshold
-      const verticalMinDist = 8; // extra-easy vertical detection
-      const maxTime = 1000; // allow slower, deliberate swipes
+      const minDist = 10; // horizontal threshold
+      const verticalMinDist = 6; // extra-easy vertical detection
+      const maxTime = 1200; // allow slower, deliberate swipes
       if (dt > maxTime) return;
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
-      if (absDx < minDist && absDy < verticalMinDist) return;
+      if (!hasMoved && absDx < minDist && absDy < verticalMinDist) return;
 
       const current = activeLayer.get();
       const target = { ...current };
 
-      const verticalBias = 0.6; // strongly favor vertical intent
+      const verticalBias = 0.5; // favor vertical intent even more
       const isVertical = absDy >= verticalMinDist && absDy * verticalBias > absDx;
 
       if (!isVertical) {
