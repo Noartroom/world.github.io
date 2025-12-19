@@ -1,224 +1,376 @@
-current store is binary (isLowPower vs. Normal). To achieve the "SOTA vs. Safe" split without glitches, we need to distinguish between "Capable of Rendering" (WebGPU works) and "Capable of High-Fidelity" (Can handle 30MB assets + 4K textures).
+1. The Asset Pipeline (Execute First)
 
+Goal: Create the "Safe" (Base) and "Ultra" (SOTA) assets without using Draco.
 
-Idea: We need to think about different tiers: 1) Lowest processing power: Mobile (keep in mind that mobile can ahve a variety of sizes and shapes) 2) Mid-tier: Desktop (maybe an additional check if there is a keyboard would help distinguish this) 3) Desktop + Webgpu capable. 
+Run these commands in your terminal:
 
-Here is a suggestion for an improved implementation that hooks directly into your existing deviceStore.ts.
+Bash
+# 1. Base Model (Balanced Tier)
+# Target: ~3-5MB. Safe for all devices.
+# 2K textures + WebP compression + Resize
+gltf-transform resize source_sota.glb model-base.glb --width 2048 --height 2048
+gltf-transform webp model-base.glb model-base.glb --quality 80
 
-1. Refine deviceStore.ts (Add the "High End" Tier)
+# 2. SOTA Model (Ultra Tier)
+# Target: 30MB+. Desktop Only.
+# Keep your original file.
+cp source_sota.glb model-sota.glb
+2. The Thermal-Aware Device Store
 
-Your current isLowPower heuristic is excellent for downgrading (e.g. killing animations), but we need a specific flag for upgrading to SOTA assets.
-
-We will add a tier to your state.
+File: src/lib/stores/deviceStore.ts Change: Added cleanup logic for the battery listener to prevent memory leaks.
 
 TypeScript
-// deviceStore.ts
 import { map } from 'nanostores';
+
+interface NetworkInformation {
+  saveData?: boolean;
+  effectiveType?: 'slow-2g' | '2g' | '3g' | '4g';
+}
+
+interface BatteryManager extends EventTarget {
+  level: number;
+  charging: boolean;
+}
+
+declare global {
+  interface Navigator {
+    gpu?: any;
+    connection?: NetworkInformation;
+    deviceMemory?: number;
+    getBattery?: () => Promise<BatteryManager>;
+  }
+}
+
+export type Tier = 'low' | 'balanced' | 'ultra';
 
 export type DeviceState = {
   isMobile: boolean;
   hasWebGPU: boolean;
   isLowPower: boolean;
-  prefersReducedMotion: boolean;
   isTouch: boolean;
-  // NEW: Explicit Performance Tier
-  tier: 'low' | 'balanced' | 'ultra'; 
+  tier: Tier;
+  networkTier: 'high' | 'low';
 };
 
 export const deviceState = map<DeviceState>({
   isMobile: false,
   hasWebGPU: false,
   isLowPower: false,
-  prefersReducedMotion: false,
   isTouch: false,
-  tier: 'balanced' // Default to safe middle ground
+  tier: 'balanced',
+  networkTier: 'high'
 });
 
-export function initDeviceDetection() {
+let batteryCleanup: (() => void) | null = null;
+
+export async function initDeviceDetection() {
   if (typeof window === 'undefined') return;
 
+  // Cleanup previous listeners if re-initialized
+  if (batteryCleanup) {
+      batteryCleanup();
+      batteryCleanup = null;
+  }
+
   const ua = navigator.userAgent;
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  
+  const isAndroid = /Android/i.test(ua);
+  // iPadOS 13+ detection (MacIntel + TouchPoints)
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isMobile = isAndroid || isIOS || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
   // @ts-ignore
   const hasWebGPU = !!navigator.gpu;
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-  // --- REFINED HEURISTICS ---
   
-  // 1. Default Baseline
-  let isLowPower = !hasWebGPU; 
-  let tier: 'low' | 'balanced' | 'ultra' = 'balanced';
-
-  // @ts-ignore
   const cores = navigator.hardwareConcurrency || 4;
-  // @ts-ignore
-  const memory = navigator.deviceMemory || 4;
-  // @ts-ignore
-  const saveData = navigator.connection?.saveData === true;
+  const memory = navigator.deviceMemory || 4; 
+  
+  const conn = navigator.connection;
+  const isSlowNetwork = conn ? (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === '3g') : false;
+  
+  // --- TIER LOGIC ---
+  let tier: Tier = 'balanced';
+  let isLowPower = false;
 
-  // 2. Identify Low Power (Aggressive Downgrade)
-  if (saveData || cores < 4 || memory < 4) {
-      isLowPower = true;
-      tier = 'low';
+  // 1. LOW TIER (Fail-safe)
+  if (!hasWebGPU || isSlowNetwork || (isMobile && memory < 4)) {
+    tier = 'low';
+    isLowPower = true;
+  }
+  // 2. ULTRA TIER (SOTA Desktop)
+  // Strict: Must be Desktop (No Touch), WebGPU, >8GB RAM, High Cores.
+  // CRITICAL: !isTouch protects iPad Pro M2 from overheating.
+  else if (hasWebGPU && !isMobile && !isTouch && memory >= 8 && cores >= 6) {
+    tier = 'ultra';
+  }
+  // 3. BALANCED TIER (Default)
+  else {
+    tier = 'balanced';
   }
 
-  // 3. Identify Ultra/SOTA Capable (Strict Upgrade)
-  // Must have WebGPU, lots of RAM, NOT be on mobile data (heuristic), and NOT be "Low Power"
-  if (hasWebGPU && !isLowPower && !isMobile && memory >= 8 && cores >= 6) {
-      tier = 'ultra';
-  }
-
-  // Mobile SOTA Exception: High-end iPads/iPhones or flagship Androids
-  if (isMobile && hasWebGPU && !isLowPower && memory >= 6) {
-      // Mobile usually shouldn't download 30MB assets, so we keep them 'balanced' 
-      // unless you specifically want SOTA on mobile. 
-      // keeping 'balanced' forces the 2K model (Safe).
-      tier = 'balanced'; 
+  // Battery Listener (Async)
+  if (navigator.getBattery) {
+    try {
+      const battery = await navigator.getBattery();
+      const checkBattery = () => {
+          if (!battery.charging && battery.level < 0.2) {
+             // Force downgrade if low battery
+             const current = deviceState.get();
+             if (current.tier === 'ultra') deviceState.setKey('tier', 'balanced');
+             deviceState.setKey('isLowPower', true);
+          }
+      };
+      
+      checkBattery();
+      battery.addEventListener('levelchange', checkBattery);
+      
+      // Save cleanup function
+      batteryCleanup = () => {
+          battery.removeEventListener('levelchange', checkBattery);
+      };
+    } catch (e) { /* Ignore */ }
   }
 
   deviceState.set({
     isMobile,
     hasWebGPU,
     isLowPower,
-    prefersReducedMotion,
     isTouch,
-    tier
+    tier,
+    networkTier: isSlowNetwork ? 'low' : 'high'
   });
-
-  console.log('Device Detection:', deviceState.get());
 }
-2. The Progressive Asset Pipeline
+3. The Memory-Safe Rust Hot-Swap
 
-You still need to generate the Safe Base Model (2K textures) and keep your SOTA Model (Original).
+File: src/lib.rs Change: Explicitly dropping the old model prevents the "Out of Memory" crash.
 
-Run these commands (using @gltf-transform/cli):
+Rust
+#[wasm_bindgen]
+impl State {
+    // ... existing methods ...
 
-Bash
-# 1. Generate SAFE Base Model (2K textures, WebP compression)
-# This file will likely be ~3-5MB.
-gltf-transform resize source_sota.glb model-base.glb --width 2048 --height 2048
-gltf-transform webp model-base.glb model-base.glb --quality 80
+    // REPLACES: load_model_from_bytes
+    #[wasm_bindgen(js_name = "loadModelFromBytes")]
+    pub fn load_model_from_bytes(&mut self, bytes: &[u8]) {
+        // 1. SAFETY: Explicitly drop the old model first.
+        // This ensures RAM is freed BEFORE we parse the new 30MB file.
+        if self.game.model.is_some() {
+            self.game.model = None; // Explicit drop
+        }
 
-# 2. Keep source_sota.glb as is (30MB+, 4K textures)
-3. Renderer.astro (The Tiered Loader)
+        // 2. Parse & Load New Model
+        // This will cause the ~100-300ms freeze your friend mentioned.
+        // We will mask this with the spinner in Astro.
+        match load_model_from_bytes(
+            &self.renderer.device, 
+            &self.renderer.queue, 
+            bytes, 
+            &self.renderer.material_layout,
+            &self.renderer.mipmap_pipeline_linear,
+            &self.renderer.mipmap_pipeline_srgb,
+            &self.renderer.mipmap_bind_group_layout,
+            self.game.tx.clone()
+        ) {
+            Ok(model) => {
+                self.game.model_center = model.center;
+                self.game.model_extent = model.extent;
+                self.game.model = Some(model);
+                web_sys::console::log_1(&"Model Hot-Swap Complete".into());
+            },
+            Err(e) => {
+                web_sys::console::error_1(&format!("Failed to parse GLB: {}", e).into());
+            }
+        }
+    }
+}
+4. The "Zero-Glitch" Loader
 
-This is where we connect your Store to the Logic. We load "Safe" first, then check the Store to see if we are allowed to upgrade.
+File: src/components/Renderer.astro Change: Implements the "Debounce Delay" and uses the UI Spinner to mask the hot-swap freeze.
 
 JavaScript
-// Renderer.astro
 import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
-// ... other imports
+import { activeModel } from '../lib/stores/sceneStore';
 
-// --- Initialization ---
+// ... imports (init, startRenderer, etc.)
+
+// DOM Elements
+const loader = document.getElementById('loader');
+
 async function start(forceHighPerformance = false) {
     if (!canvas) return;
 
-    // 1. Run Detection immediately
-    initDeviceDetection();
+    // 1. Detect Tier
+    await initDeviceDetection();
     const device = deviceState.get();
 
-    // 2. SAFETY CHECK: If Low Power, engage Fallback Mode immediately
-    // (This uses your existing fallback logic)
-    if (device.isLowPower && !forceHighPerformance) {
+    // 2. Fallback for Potato Devices
+    if (device.tier === 'low' && !forceHighPerformance) {
         activateFallbackMode();
         return;
     }
 
-    // 3. LOAD BASE MODEL (The "Safe" 2K Version)
-    // This renders quickly and guarantees no visual glitches or white screens.
-    await init(); // Init WASM
-    // Initialize Rust State
-    state = await startRenderer(canvas, device.isMobile); 
+    // 3. Init Engine
+    if (loader) loader.classList.remove('hidden');
+    await init();
+    state = await startRenderer(canvas, device.isMobile);
+
+    // 4. LOAD SAFE MODEL (Balanced/Base)
+    // Always load this first. Fast TTI.
+    await loadModel('base');
     
-    // Load the 2K model first
-    await loadModel('base'); 
+    // Hide loader after base model is ready
+    if (loader) loader.classList.add('hidden');
 
-    // 4. PROGRESSIVE UPGRADE (The SOTA Check)
-    // We check the Tier computed in your store + Network conditions
-    await attemptSotaUpgrade(device);
-
-    // ... [Observers and Event Listeners setup] ...
+    // 5. PROGRESSIVE UPGRADE (The "Ultra" Path)
+    if (device.tier === 'ultra') {
+        // Wait 2 seconds for main thread to settle
+        console.log("⏳ Tier Ultra detected. Scheduling SOTA upgrade...");
+        setTimeout(() => triggerSotaUpgrade(), 2000);
+    }
 }
 
-async function attemptSotaUpgrade(device) {
-    // 1. Check Store Tier
-    if (device.tier !== 'ultra') {
-        console.log(`Rendering Tier: ${device.tier.toUpperCase()} (Sticking to Base Model)`);
-        return;
-    }
+async function triggerSotaUpgrade() {
+    const device = deviceState.get();
+    
+    if (device.networkTier === 'low') return;
 
-    // 2. Check Network (Dynamic check, separate from static hardware capabilities)
-    // @ts-ignore
-    const connection = navigator.connection;
-    if (connection) {
-        // Don't download 30MB on 3G or if RTT is high
-        if (connection.saveData || connection.effectiveType !== '4g') {
-            console.log("Tier is ULTRA, but network is slow. Skipping SOTA upgrade.");
-            return;
-        }
-    }
-
-    console.log("🚀 Tier ULTRA detected. Fetching SOTA assets...");
-
+    console.log("🚀 Triggering SOTA Asset Upgrade...");
+    
     try {
-        // 3. Lazy Load SOTA Model
-        const response = await fetch('/models/source_sota.glb');
-        if (!response.ok) throw new Error('Network error');
+        // A. Show "Buffering" or subtle loader (Optional)
+        // We re-show the loader text to explain the micro-freeze
+        if (loader) {
+            loader.textContent = "UPGRADING TEXTURES...";
+            loader.classList.remove('hidden');
+        }
+
+        // B. Fetch SOTA model (30MB+)
+        // This happens in background, no freeze yet
+        const response = await fetch('/models/model-sota.glb');
+        if (!response.ok) throw new Error('Download failed');
         
         const bytes = new Uint8Array(await response.arrayBuffer());
 
-        // 4. Hot-Swap in Rust
-        if (state) {
-            state.loadModelFromBytes(bytes); // Rust hot-swaps geometry/textures
-            console.log("✨ Upgraded to SOTA Resolution");
-        }
+        // C. Hot-Swap (The Freeze happens here)
+        // We use requestAnimationFrame to ensure the Loader is rendered 
+        // BEFORE we freeze the thread with Rust.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (state) {
+                    state.loadModelFromBytes(bytes);
+                    console.log("✨ Visuals upgraded to 4K SOTA");
+                    
+                    // Hide loader again
+                    if (loader) loader.classList.add('hidden');
+                }
+            });
+        });
+
     } catch (e) {
-        console.warn("SOTA upgrade failed, safely stayed on Base model.", e);
+        console.warn("SOTA upgrade failed, staying on Base model.", e);
+        if (loader) loader.classList.add('hidden');
     }
 }
 
-// Updated loadModel helper
-const loadModel = async (modelType) => {
-    // Map abstract names to files
-    let path = '/models/model-base.glb'; // Default Safe 2K
+const loadModel = async (quality = 'base') => {
+    // quality is 'base' (2K) or 'sota' (4K)
+    // Note: Always default to 'base' for initial load logic
+    const path = quality === 'sota' ? '/models/model-sota.glb' : '/models/model-base.glb';
     
-    if (modelType === 'dark') path = '/models/model-dark-base.glb'; 
-    // Note: If you have a dark theme SOTA, logic gets complex. 
-    // Start with just upgrading the main light model for now.
-
-    // ... [Your existing fetch/load logic]
+    try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        
+        if (state) state.loadModelFromBytes(bytes);
+    } catch(e) {
+        console.error("Model load failed", e);
+    }
 };
-4. Preventing Glitches on Resize
 
-With nanostores, we can react to changes. If a user resizes their desktop window to be very small, we don't necessarily want to downgrade the model (re-downloading is bad), but we do want to cap the DPI to save heat.
+The Fix: Enabling "Legacy 3D" (WebGL)
 
-Add this logic inside your existing triggerResize function in Renderer.astro:
+We need to make two changes:
 
-JavaScript
-// Renderer.astro - triggerResize()
+Rust: Tell wgpu to explicitly allow the OpenGL (WebGL) backend.
 
-function triggerResize() {
-    if (!container || !canvas) return;
+TypeScript: Update detection to allow "WebGL-only" devices into the "Low" or "Balanced" tier instead of kicking them to the fallback image.
+
+1. Update renderer.rs (Enable WebGL Support)
+
+Your current code uses Instance::default(), which on the web often strictly prefers WebGPU. We need to explicitly request Backends::all() (or specifically GL + WebGPU) to ensure it hunts for a WebGL2 context when WebGPU is missing. 
+
+Modify renderer.rs:
+
+Rust
+pub async fn new(canvas: HtmlCanvasElement, is_mobile: bool, sample_count: u32) -> Result<Self, JsValue> {
+    // OLD: let instance = wgpu::Instance::default();
     
-    const device = deviceState.get(); // Read from your store
+    // NEW: Explicitly allow WebGL (GL) and WebGPU (BROWSER_WEBGPU)
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::GL | wgpu::Backends::BROWSER_WEBGPU,
+        ..Default::default()
+    });
 
-    // 1. Smart DPI Cap
-    // If Tier is Ultra, we allow 2.0 (Retina).
-    // If Balanced/Mobile, we cap at 1.5.
-    // If Low, we cap at 1.0.
-    let cap = 1.0;
-    if (device.tier === 'ultra') cap = 2.0;
-    else if (device.tier === 'balanced') cap = 1.5;
+    // ... rest of your code
+Note: You already have logic in renderer.rs to disable MSAA on the GL backend (if info.backend == wgpu::Backend::Gl), so this will integrate perfectly. 
 
-    // 2. Window Size Safety
-    // Even on Ultra Desktop, if window is small, don't render 2.0 DPI
-    if (window.innerWidth < 800) cap = Math.min(cap, 1.5);
+2. Update deviceStore.ts (Allow WebGL Detection)
 
-    // Apply
-    const pixelRatio = window.devicePixelRatio || 1;
-    currentDpr = Math.min(targetDpr, Math.min(pixelRatio, cap));
+Currently, isLowPower defaults to true if !hasWebGPU. We need to change this to only fallback if both WebGPU and WebGL are missing. 
 
-    // ... [Rest of resize logic]
+Modify initDeviceDetection in deviceStore.ts:
+
+TypeScript
+// Add this helper to check for WebGL2 support
+function hasWebGLSupport() {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGL2RenderingContext && canvas.getContext('webgl2'));
+  } catch (e) {
+    return false;
+  }
 }
+
+export function initDeviceDetection() {
+  if (typeof window === 'undefined') return;
+
+  // ... [Existing detection logic] ...
+  
+  // @ts-ignore
+  const hasWebGPU = !!navigator.gpu;
+  const hasWebGL = hasWebGLSupport(); // NEW CHECK
+
+  // ... [Heuristics] ...
+
+  // --- REFINED TIER LOGIC ---
+  let tier: Tier = 'balanced';
+  let isLowPower = false;
+
+  // 1. FALLBACK (Static Image)
+  // Only if BOTH WebGPU and WebGL are missing, or device is extremely weak
+  if ((!hasWebGPU && !hasWebGL) || isSlowNetwork || (isMobile && memory < 2)) {
+      tier = 'low';
+      isLowPower = true; // Triggers static fallback
+  }
+  
+  // 2. LEGACY 3D (Safari / DDG / Ecosia)
+  // Has WebGL but no WebGPU. We force them to "Low" or "Balanced" tier.
+  else if (!hasWebGPU && hasWebGL) {
+      console.log("WebGL Legacy Mode Detected (Safari/WebView)");
+      tier = 'balanced'; // Renders 2K model
+      isLowPower = false; // ALLOWS 3D RENDERING
+  }
+
+  // 3. ULTRA TIER (SOTA Desktop)
+  // Must have WebGPU specifically
+  else if (hasWebGPU && !isMobile && !isTouch && memory >= 8 && cores >= 6) {
+    tier = 'ultra';
+  }
+  
+  // 4. BALANCED TIER (Default WebGPU Mobile/Laptop)
+  else {
+    tier = 'balanced';
+  }
+
+  // ... [Rest of function]
