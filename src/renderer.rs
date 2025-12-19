@@ -29,7 +29,10 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(canvas: HtmlCanvasElement, is_mobile: bool, sample_count: u32) -> Result<Self, JsValue> {
-        let instance = wgpu::Instance::default();
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::GL | wgpu::Backends::BROWSER_WEBGPU,
+            ..Default::default()
+        });
 
         #[cfg(target_arch = "wasm32")]
         let target = wgpu::SurfaceTarget::Canvas(canvas.clone());

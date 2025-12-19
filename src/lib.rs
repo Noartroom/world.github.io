@@ -73,6 +73,11 @@ impl State {
     
     #[wasm_bindgen(js_name = "loadModelFromBytes")]
     pub fn load_model_from_bytes(&mut self, bytes: &[u8]) {
+        // Ensure previous model memory is freed before parsing the new asset
+        if self.game.model.is_some() {
+            self.game.model = None;
+        }
+
         match load_model_from_bytes(
             &self.renderer.device, 
             &self.renderer.queue, 

@@ -725,6 +725,13 @@ main {
     box-shadow: 0 0 30px rgba(0,0,0,0.5);
   }
 
+  @supports not (backdrop-filter: blur(1px)) {
+    .global-controls {
+      backdrop-filter: none;
+      background: rgba(0, 0, 0, 0.55);
+    }
+  }
+
   /* --- Right Side Navigation (Desktop) --- */
   .spatial-nav-right {
       position: fixed;

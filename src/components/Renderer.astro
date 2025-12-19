@@ -19,6 +19,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       </div>
   </div>
   
+  <div id="loader" class="loader hidden" role="status" aria-live="polite">
+    LOADING 3D...
+  </div>
+  
   <canvas id={CANVAS_ID} tabindex="0" aria-label="3D Canvas"></canvas>
 </div>
 
@@ -33,6 +37,9 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   const container = document.getElementById('renderer-container-id');
   const CANVAS_ID = container?.dataset.canvasId;
   const modelPath = container?.dataset.modelPath;
+  const loader = document.getElementById('loader');
+  const BASE_MODEL_PATH = '/models/PORTAL.glb';
+  const SOTA_MODEL_PATH = '/models/newmesh.glb';
   // --- Global Scope (für Cleanup notwendig) ---
   let state: any = null;
   let rafId: number | null = null;
@@ -45,6 +52,8 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   let timeUnsub: (() => void) | null = null;
   let layerUnsub: (() => void) | null = null;
   let isLoadingModel = false; // Prevent concurrent model loads
+  let currentLoadedModelPath: string | null = null; // Track last loaded asset
+  let isInitialLoad = true;
   let isFallbackMode = false;
 
   // UI Repulsion Cache
@@ -67,6 +76,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   const canvas: HTMLCanvasElement | null = CANVAS_ID ? document.getElementById(CANVAS_ID) as HTMLCanvasElement : null;
   const fallbackContainer = document.getElementById('fallback-container');
   const force3dBtn = document.getElementById('force-3d-btn');
+  const DEFAULT_LOADER_TEXT = 'LOADING 3D...';
 
   // Input State
   let isDragging = false;
@@ -272,30 +282,195 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       };
   }
 
+  function getModelPathForType(modelType: string) {
+    if (modelType === 'dark') {
+      return '/models/PORTAL.glb';
+    }
+    return modelPath || '/models/newmesh.glb';
+  }
+
+  async function probeWebGPUAdapter(timeoutMs = 400) {
+    // Fast probe to detect blocked/denied adapters on browsers that still expose navigator.gpu
+    // Returns true if an adapter is obtainable within timeout.
+    // If navigator.gpu is absent this will return false (handled by device tier logic).
+    // eslint-disable-next-line compat/compat
+    if (!navigator.gpu) return false;
+    try {
+      const adapterPromise = navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), timeoutMs));
+      const adapter = await Promise.race([adapterPromise, timeoutPromise]);
+      return !!adapter;
+    } catch (e) {
+      console.warn('WebGPU adapter probe failed, falling back if possible.', e);
+      return false;
+    }
+  }
+
+  async function fetchAndLoadModel(
+    path: string,
+    options: { label?: string; skipIfLoaded?: boolean; onFailure?: () => Promise<void> | void } = {}
+  ) {
+    const { label, skipIfLoaded = true, onFailure } = options;
+    if (!state) {
+      console.error('Cannot load model: renderer state not ready');
+      return;
+    }
+
+    if (skipIfLoaded && currentLoadedModelPath === path) {
+      console.log(`Model ${label || path} already loaded, skipping`);
+      return;
+    }
+
+    if (isLoadingModel) {
+      console.log(`Model load already in progress, skipping ${label || path}`);
+      return;
+    }
+
+    isLoadingModel = true;
+    try {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      state.loadModelFromBytes(bytes);
+      currentLoadedModelPath = path;
+    } catch (e) {
+      console.error(`Failed to load model${label ? ` (${label})` : ''}:`, e);
+      if (onFailure) {
+        await onFailure();
+      } else if (isInitialLoad) {
+        activateFallbackMode();
+      }
+    } finally {
+      isLoadingModel = false;
+    }
+  }
+
+  async function loadBalancedModel() {
+    const preferredPath = BASE_MODEL_PATH;
+    await fetchAndLoadModel(preferredPath, {
+      label: 'base',
+      skipIfLoaded: false,
+      onFailure: async () => {
+        const fallbackPath = getModelPathForType(activeModel.get());
+        if (fallbackPath !== preferredPath) {
+          await fetchAndLoadModel(fallbackPath, { label: 'base-fallback', skipIfLoaded: false });
+        } else {
+          activateFallbackMode();
+        }
+      }
+    });
+    if (!isFallbackMode) {
+      isInitialLoad = false;
+    }
+  }
+
+  async function loadModelByTheme(modelType: string) {
+    const path = getModelPathForType(modelType);
+    await fetchAndLoadModel(path, { label: `theme:${modelType}` });
+  }
+
+  async function triggerSotaUpgrade() {
+    const device = deviceState.get();
+    if (device.networkTier === 'low') return;
+
+    console.log('🚀 Triggering SOTA Asset Upgrade...');
+    
+    if (loader) {
+      loader.textContent = 'UPGRADING TEXTURES...';
+      loader.classList.remove('hidden');
+    }
+
+    try {
+      const response = await fetch(SOTA_MODEL_PATH);
+      if (!response.ok) throw new Error('Download failed');
+      
+      const bytes = new Uint8Array(await response.arrayBuffer());
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (state) {
+            state.loadModelFromBytes(bytes);
+            currentLoadedModelPath = SOTA_MODEL_PATH;
+            console.log('✨ Visuals upgraded to SOTA');
+          }
+          if (loader) {
+            loader.textContent = DEFAULT_LOADER_TEXT;
+            loader.classList.add('hidden');
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('SOTA upgrade failed, staying on Base model.', e);
+      if (loader) {
+        loader.textContent = DEFAULT_LOADER_TEXT;
+        loader.classList.add('hidden');
+      }
+    }
+  }
+
   // --- Initialization ---
   async function start(forceHighPerformance = false) {
     if (!canvas) return;
 
-    // Detect Device Capabilities
-    initDeviceDetection();
-    const device = deviceState.get();
+    if (loader) {
+      loader.textContent = DEFAULT_LOADER_TEXT;
+      loader.classList.remove('hidden');
+    }
+
+    await initDeviceDetection();
+    let device = deviceState.get();
+
+    // Fast WebGPU adapter probe to catch blocked/denied adapters on Chrome variants
+    const adapterAvailable = await probeWebGPUAdapter();
+    if (device.hasWebGPU && !adapterAvailable) {
+      // Downgrade to WebGL tier if available; otherwise fallback tier
+      deviceState.set({
+        ...device,
+        hasWebGPU: false,
+        tier: device.hasWebGL ? 'balanced' : 'low',
+        isLowPower: !device.hasWebGL
+      });
+      device = deviceState.get();
+    }
 
     // Check if we should use fallback
-    if (!forceHighPerformance && (device.isLowPower || !device.hasWebGPU)) {
+    if (!forceHighPerformance && device.tier === 'low') {
       activateFallbackMode();
+      if (loader) loader.classList.add('hidden');
       return;
     }
 
     // Initialize 3D Renderer
     try {
       await init();
-      const isMobile = window.innerWidth < 768;
-      state = await startRenderer(canvas, isMobile);
+      state = await startRenderer(canvas, device.isMobile);
       
       // REMOVED: Fallback hiding moved to after model load
       // if (fallbackContainer) fallbackContainer.classList.add('hidden');
       
       if (canvas) canvas.style.display = 'block';
+
+      // Load balanced-tier model first for faster TTI
+      await loadBalancedModel();
+      if (isFallbackMode) {
+        if (loader) loader.classList.add('hidden');
+        return;
+      }
+      
+      if (loader) loader.classList.add('hidden');
+      
+      // Hide fallback after balanced/base model is ready
+      if (fallbackContainer) {
+          fallbackContainer.classList.add('hidden');
+      }
+      if (document?.body) {
+          document.body.classList.remove('fallback-mode');
+      }
+
+      if (device.tier === 'ultra' && device.networkTier === 'high') {
+        console.log('⏳ Tier Ultra detected. Scheduling SOTA upgrade...');
+        setTimeout(() => triggerSotaUpgrade(), 2000);
+      }
       
       // 1. Theme Sync - Initialize lighting based on current theme
       if (theme) {
@@ -354,90 +529,17 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       }
 
       // 1.6 Model Switching
-      let isInitialLoad = true; // Track if we're doing the initial load
-      let currentLoadedModel: string | null = null; // Track currently loaded model
-      
-      const loadModel = async (modelType: string) => {
-        // Prevent concurrent loads
-        if (isLoadingModel) {
-          console.log(`Model load already in progress, skipping ${modelType}`);
-          return;
-        }
-
-        // Skip if already loaded
-        if (currentLoadedModel === modelType && !isInitialLoad) {
-          console.log(`Model ${modelType} already loaded, skipping`);
-          return;
-        }
-
-        // Ensure state is ready
-        if (!state) {
-          console.error('Cannot load model: renderer state not ready');
-          return;
-        }
-
-        const modelPath = modelType === 'dark'
-          ? '/models/PORTAL.glb'
-          : '/models/newmesh.glb';
-        
-        isLoadingModel = true;
-        
-        try {
-          const response = await fetch(modelPath);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const bytes = new Uint8Array(await response.arrayBuffer());
-          
-          // Small delay to ensure renderer is ready (fixes first-click issue)
-          if (isInitialLoad) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          
-          state.loadModelFromBytes(bytes);
-          
-          // Wait a bit for the model to be processed
-          await new Promise(resolve => setTimeout(resolve, 50));
-          
-          currentLoadedModel = modelType; // Track what we loaded
-          
-          console.log(`Model switched to: ${modelType}`);
-        } catch (e) {
-          console.error(`Failed to load model ${modelType}:`, e);
-          // If the model fails (e.g. offline), FORCE the fallback UI to appear
-          if (isInitialLoad) {
-            console.log('Offline or Load Error: Activating Fallback Mode');
-            activateFallbackMode(); 
-          }
-        } finally {
-          isLoadingModel = false;
-          if (isInitialLoad) {
-            isInitialLoad = false;
-          }
-        }
-      };
-
-      // Load initial model (wait for it to complete before setting up subscription)
       const initialModel = activeModel.get();
-      await loadModel(initialModel);
-
-      // Hide fallback ONLY after the model is actually on the GPU
-      if (fallbackContainer) {
-          fallbackContainer.classList.add('hidden');
-      }
-      // Mark body as active 3D mode
-      if (document?.body) {
-          document.body.classList.remove('fallback-mode');
-      }
+      await loadModelByTheme(initialModel);
 
       // Subscribe to model changes (only after initial load is complete)
       modelUnsub = onSet(activeModel, ({ newValue }) => {
-        // Skip if this is the initial value being set or if already loading
-        if (isInitialLoad || isLoadingModel) {
+        if (isLoadingModel) {
           return;
         }
         
-        // Only load if state is ready and value actually changed
-        if (state && newValue !== currentLoadedModel) {
-          loadModel(newValue);
+        if (state && newValue) {
+          loadModelByTheme(newValue);
         }
       });
 
@@ -472,6 +574,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       if (fallbackContainer) fallbackContainer.classList.remove('hidden');
       if (document?.body) {
           document.body.classList.add('fallback-mode');
+      }
+      if (loader) {
+          loader.textContent = DEFAULT_LOADER_TEXT;
+          loader.classList.add('hidden');
       }
 
   }
@@ -829,6 +935,24 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     display: none;
 }
 
+.loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    z-index: 6;
+    text-transform: uppercase;
+}
+
+.loader.hidden {
+    display: none;
+}
+
 .fallback-controls {
     margin-top: 2rem;
     text-align: center;
@@ -843,6 +967,13 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     backdrop-filter: blur(10px);
     cursor: pointer;
     transition: all 0.2s;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+    .force-btn {
+        backdrop-filter: none;
+        background: rgba(255, 255, 255, 0.25);
+    }
 }
 
 
