@@ -872,12 +872,15 @@ import Renderer from '@/components/Renderer.astro';
     position: absolute;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: none;
+    box-shadow: none !important;
+    outline: none !important;
     display: flex;
     justify-content: center;
     align-items: center;
     pointer-events: none !important;
     /* backface-visibility removed to prevent wireframe glitching */
+    -webkit-backface-visibility: visible; /* Ensure consistent behavior */
+    backface-visibility: visible;
   }
 
   /* Light Theme Override for Room Lines */
