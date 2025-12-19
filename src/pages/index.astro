@@ -107,6 +107,99 @@ import Renderer from '@/components/Renderer.astro';
         </div>
         
     </div>
+
+    <!-- Persistent UI: Always on top (Buttons) -->
+    <div id="layer-persistent">
+      
+      <!-- Spatial Navigation (Right Side Stack) -->
+      <div class="spatial-nav-right">
+          <!-- In (Forward) -->
+          <button id="nav-forward" class="nav-btn-circle" aria-label="Move In">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 4L12 16M12 4L8 8M12 4L16 8M4 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          
+          <!-- Horizontal Row: Left / Cube / Right -->
+          <div class="nav-horizontal-row">
+              <button id="nav-left" class="nav-btn-circle" aria-label="Move Left">
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="transform: rotate(-90deg)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+              </button>
+              
+              <!-- Indicator Cube (Center) -->
+              <div class="indicator-stack">
+                  <div class="mini-map" id="mini-map-desktop">
+                      <!-- Layer (0,0,1) Front -->
+                      <button class="mini-cube" data-x="0" data-y="0" data-z="1" aria-label="Go to Front Layer">
+                        <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                        <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                        <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                      <!-- Layer (0,0,0) Back -->
+                      <button class="mini-cube" data-x="0" data-y="0" data-z="0" aria-label="Go to Back Layer">
+                         <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                         <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                         <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                      <!-- Layer (1,0,0) Right -->
+                      <button class="mini-cube" data-x="1" data-y="0" data-z="0" aria-label="Go to Right Layer">
+                         <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                         <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                         <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                      </button>
+                  </div>
+                  <div id="coords-desktop" class="coords-display">0,0,0</div>
+              </div>
+
+              <button id="nav-right" class="nav-btn-circle" aria-label="Move Right">
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="transform: rotate(90deg)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+              </button>
+          </div>
+
+          <!-- Out (Backward) -->
+          <button id="nav-backward" class="nav-btn-circle" aria-label="Move Out">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 20L12 8M12 20L8 16M12 20L16 16M4 4H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+      </div>
+
+      <!-- Top Bar: Toggles only -->
+      <nav class="global-controls" aria-label="Global Controls">
+        <button id="themeToggle" class="global-toggle" aria-label="Toggle Dark/Light Theme" aria-pressed="false">Theme</button>
+        <button id="modelToggle" class="global-toggle" aria-label="Switch 3D Model" aria-pressed="false">Model</button>
+        <button id="blob-toggle" class="global-toggle" aria-label="Toggle Light Blob Effect" aria-pressed="false">Light</button>
+        
+        <div class="divider"></div>
+
+        <div id="time-display" class="global-toggle time-control" tabindex="0" role="slider" aria-label="Time of Day Control. Swipe up/down to change time." aria-valuemin="0" aria-valuemax="24" aria-valuenow="12" aria-valuetext="12:00 UTC">
+          <span class="time-value">12:00</span>
+        </div>
+      </nav>
+
+      <!-- Mobile Nav (Map Only) -->
+      <div class="layer-nav-mobile" id="layer-nav-mobile-container">
+        <!-- Reusing the mini-map structure for mobile, positioned bottom right -->
+        <div class="mobile-map-container">
+             <div class="mini-map mobile-mode" id="mini-map-mobile">
+                  <!-- Layer (0,0,1) Front -->
+                  <button class="mini-cube" data-x="0" data-y="0" data-z="1" aria-label="Go to Front Layer">
+                    <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                    <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                    <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+                  <!-- Layer (0,0,0) Back -->
+                  <button class="mini-cube" data-x="0" data-y="0" data-z="0" aria-label="Go to Back Layer">
+                     <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                     <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                     <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+                  <!-- Layer (1,0,0) Right -->
+                  <button class="mini-cube" data-x="1" data-y="0" data-z="0" aria-label="Go to Right Layer">
+                     <div class="mc-face mc-front"></div><div class="mc-face mc-back"></div>
+                     <div class="mc-face mc-right"></div><div class="mc-face mc-left"></div>
+                     <div class="mc-face mc-top"></div><div class="mc-face mc-bottom"></div>
+                  </button>
+              </div>
+             <div id="coords-mobile" class="coords-display">0,0,0</div>
+        </div>
+      </div>
     </div>
   </main>
 </Layout>
