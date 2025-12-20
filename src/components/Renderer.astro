@@ -597,16 +597,16 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
              isDraggingBlob = false;
              hasSpawnedSinceActive = false; // Reset the flag so it can be spawned again if re-enabled
          }
-         // Mobile Fix: Spawn immediately at center when toggled ON
-         else if (newValue && state?.spawnBlob) {
-             const isMobile = window.innerWidth < 768;
-             if (isMobile && !hasSpawnedSinceActive) {
-                 if (canvas) {
-                     const rect = canvas.getBoundingClientRect();
-                     // Spawn at center
-                     state.spawnBlob(rect.width / 2, rect.height / 2, rect.width, rect.height);
-                     hasSpawnedSinceActive = true;
-                 }
+         // Spawn immediately when toggled ON (all devices)
+         else if (newValue && state?.spawnBlob && !hasSpawnedSinceActive) {
+             if (canvas) {
+                 const rect = canvas.getBoundingClientRect();
+                 // Spawn near center but slightly offset to avoid blocking view too much
+                 // Position at ~60% width and ~55% height for a natural, non-intrusive placement
+                 const spawnX = rect.width * 0.6;
+                 const spawnY = rect.height * 0.55;
+                 state.spawnBlob(spawnX, spawnY, rect.width, rect.height);
+                 hasSpawnedSinceActive = true;
              }
          }
       });
@@ -691,14 +691,15 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
               state.despawnBlob();
               isDraggingBlob = false;
               hasSpawnedSinceActive = false;
-            } else if (newValue && state?.spawnBlob) {
-              const isMobile = window.innerWidth < 768;
-              if (isMobile && !hasSpawnedSinceActive) {
-                if (canvas) {
-                  const rect = canvas.getBoundingClientRect();
-                  state.spawnBlob(rect.width / 2, rect.height / 2, rect.width, rect.height);
-                  hasSpawnedSinceActive = true;
-                }
+            } else if (newValue && state?.spawnBlob && !hasSpawnedSinceActive) {
+              if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                // Spawn near center but slightly offset to avoid blocking view too much
+                // Position at ~60% width and ~55% height for a natural, non-intrusive placement
+                const spawnX = rect.width * 0.6;
+                const spawnY = rect.height * 0.55;
+                state.spawnBlob(spawnX, spawnY, rect.width, rect.height);
+                hasSpawnedSinceActive = true;
               }
             }
           });
