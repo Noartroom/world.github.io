@@ -37,6 +37,11 @@ export default defineConfig({
         '@': resolve(__dirname, './src'),
       },
     },
+    build: {
+      rollupOptions: {
+        external: ['/pkg/model_renderer_gl.js'],
+      },
+    },
   },
   integrations: [
     AstroPWA({
