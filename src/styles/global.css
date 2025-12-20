@@ -220,3 +220,28 @@ body.user-idle #layer-persistent .global-controls {
 }
 
 /* Added comments to replace deleted blocks */
+
+/* iOS/WebKit safeguard: disable heavy filters/masks that can blank WebGL on Chrome/Ecosia iOS */
+@supports (-webkit-touch-callout: none) {
+  .renderer-container,
+  #world-background-container,
+  .layer-background,
+  .layer-foreground,
+  .fallback-container,
+  .loader {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  /* Ensure a visible base behind the canvas */
+  #world-background-container {
+    background: #000 !important;
+  }
+
+  /* Avoid overdraw spikes on overlays */
+  .loader {
+    background: rgba(0, 0, 0, 0.55) !important;
+  }
+}
