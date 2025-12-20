@@ -420,8 +420,18 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     await initDeviceDetection();
     let device = deviceState.get();
 
-    // Optional Chrome flag: force WebGL-only path (query ?webgl=1 or localStorage "webglOnly" === "true")
+    // Debug flags
     const params = new URLSearchParams(window.location.search);
+    const forceFallback = params.get('fallback') === '1';
+
+    if (forceFallback) {
+      console.warn('Fallback mode forced via query param.');
+      activateFallbackMode();
+      if (loader) loader.classList.add('hidden');
+      return;
+    }
+
+    // Optional Chrome flag: force WebGL-only path (query ?webgl=1 or localStorage "webglOnly" === "true")
     const forceWebGLOnly = params.get('webgl') === '1' || localStorage.getItem('webglOnly') === 'true';
     if (forceWebGLOnly && device.hasWebGL) {
       deviceState.set({
@@ -576,6 +586,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       
       // If WebGPU init fails, fall back!
       activateFallbackMode();
+      if (loader) loader.classList.add('hidden');
       
       // Ensure we kill any zombie loops
       cleanup();

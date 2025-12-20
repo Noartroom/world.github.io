@@ -87,6 +87,11 @@ export async function initDeviceDetection() {
     tier = 'low';
     isLowPower = true;
   }
+  // iOS Safari: if WebGPU is absent, WebGL paths are often unstable — prefer fallback
+  else if (!hasWebGPU && isIOS) {
+    tier = 'low';
+    isLowPower = true;
+  }
   // 2. LEGACY 3D (Safari / WebView)
   else if (!hasWebGPU && hasWebGL) {
     console.log('WebGL Legacy Mode Detected (Safari/WebView)');
