@@ -27,7 +27,7 @@ const wasmPlugin = {
   },
 };
 
-// https://astro.build/config
+// https://astro.build/config Remove? GH pages no longer in use
 export default defineConfig({
   site: 'https://noartroom.github.io',
   vite: {

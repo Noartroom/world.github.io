@@ -88,7 +88,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     try {
       // Lazy-load GL-only bundle; resilient to different export names
       // @ts-ignore dynamic alt bundle
-      const mod: any = await import('/pkg/model_renderer_gl.js');
+      const mod: any = await import(/* @vite-ignore */ '/pkg/model_renderer_gl.js');
       const altInit = mod?.default || mod?.init || mod?.initGL;
       const altStart = mod?.startRendererGL || mod?.startRenderer;
       if (!altInit || !altStart) {
