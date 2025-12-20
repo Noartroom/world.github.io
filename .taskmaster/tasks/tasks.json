@@ -169,12 +169,23 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Enhance Down Navigation Transition",
+        "description": "Apply vertical translation effect for navigating \"Down\" (0,0,1 -> 0,0,0). Replace scale/bezier transforms with translateY(0) restoration for layer-back and bg-layer-back.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-20T19:54:01.372Z"
+      "updated": "2025-12-20T19:59:57.589Z"
     }
   }
 }
