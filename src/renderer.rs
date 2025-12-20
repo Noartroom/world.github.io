@@ -43,11 +43,21 @@ impl Renderer {
         let surface = instance.create_surface(target)
             .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {}", e)))?;
         
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { 
+        let adapter = match instance.request_adapter(&wgpu::RequestAdapterOptions { 
             power_preference: wgpu::PowerPreference::HighPerformance, 
             compatible_surface: Some(&surface), 
             force_fallback_adapter: false 
-        }).await.ok_or_else(|| JsValue::from_str("No adapter"))?;
+        }).await {
+            Some(adapter) => adapter,
+            None => {
+                // Retry with fallback adapter (often maps to WebGL backend)
+                instance.request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: true
+                }).await.ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?
+            }
+        };
         
         let mut required_limits = wgpu::Limits::downlevel_webgl2_defaults();
         let adapter_limits = adapter.limits();

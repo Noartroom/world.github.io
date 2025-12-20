@@ -420,6 +420,20 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     await initDeviceDetection();
     let device = deviceState.get();
 
+    // Optional Chrome flag: force WebGL-only path (query ?webgl=1 or localStorage "webglOnly" === "true")
+    const params = new URLSearchParams(window.location.search);
+    const forceWebGLOnly = params.get('webgl') === '1' || localStorage.getItem('webglOnly') === 'true';
+    if (forceWebGLOnly && device.hasWebGL) {
+      deviceState.set({
+        ...device,
+        hasWebGPU: false,
+        tier: 'balanced',
+        isLowPower: false
+      });
+      device = deviceState.get();
+      console.warn('WebGL-only mode enabled (Chrome flag). WebGPU disabled for this session.');
+    }
+
     // Fast WebGPU adapter probe to catch blocked/denied adapters on Chrome variants
     const adapterAvailable = await probeWebGPUAdapter();
     if (device.hasWebGPU && !adapterAvailable) {
