@@ -147,12 +147,23 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Enhance Navigation & Mobile Visibility",
+        "description": "Re-enable mobile background room and set initial coordinates to (1,0,0). Enhance navigation visual effect from (0,0,0) to (0,0,1).",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-19T02:07:36.413Z"
+      "updated": "2025-12-20T19:42:20.848Z"
     }
   }
 }

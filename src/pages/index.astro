@@ -573,25 +573,20 @@ main {
     overflow: hidden;
   }
 
-  /* SIMPLIFICATION FOR MOBILE DEBUGGING */
-  @media (max-width: 768px) {
-    .scene-viewport {
-        perspective: none;
-        transform-style: flat;
-    }
-    
-    /* Hide the complex 3D background on mobile to isolate rendering bugs */
-    #world-background-container {
-        display: none !important;
-    }
-    
-    /* Simplify the foreground container to avoid interference */
-    #world-container {
-        transform-style: flat !important;
-        transform: none !important;
-    }
-
-  }
+   /* SIMPLIFICATION FOR MOBILE DEBUGGING */
+   @media (max-width: 768px) {
+     .scene-viewport {
+         perspective: none;
+         transform-style: flat;
+     }
+     
+     /* Simplify the foreground container to avoid interference */
+     #world-container {
+         transform-style: flat !important;
+         transform: none !important;
+     }
+ 
+   }
 
   /* --- 3D Background Container Lines --- */
   #world-background-container {
