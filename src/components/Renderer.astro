@@ -422,6 +422,13 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     await initDeviceDetection();
     let device = deviceState.get();
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H1',location:'Renderer.astro:start:after-detect',message:'start called after detection',data:{forceHighPerformance,device},timestamp:Date.now()})
+    }).catch(()=>{});
+    // #endregion
+
     // Debug flags
     const params = new URLSearchParams(window.location.search);
     const forceFallback = params.get('fallback') === '1';
@@ -431,6 +438,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       console.warn('Fallback mode forced via query param.');
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H2',location:'Renderer.astro:start:fallback-flag',message:'forceFallback triggered',data:{forceFallback:true},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       return;
     }
 
@@ -445,10 +458,22 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       });
       device = deviceState.get();
       console.warn('WebGL-only mode enabled (Chrome flag). WebGPU disabled for this session.');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H3',location:'Renderer.astro:start:webgl-flag',message:'forced WebGL-only',data:{device},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
     }
 
     // Fast WebGPU adapter probe to catch blocked/denied adapters on Chrome variants
     const adapterAvailable = await probeWebGPUAdapter();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'Renderer.astro:start:adapter-probe',message:'adapter probe result',data:{adapterAvailable,deviceHasWebGPU:device.hasWebGPU},timestamp:Date.now()})
+    }).catch(()=>{});
+    // #endregion
     if (device.hasWebGPU && !adapterAvailable) {
       // Downgrade to WebGL tier if available; otherwise fallback tier
       deviceState.set({
@@ -465,6 +490,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       console.warn('iOS Safari without WebGPU: using fallback (enable with ?enableGL=1 to force GL).');
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H5',location:'Renderer.astro:start:ios-fallback',message:'iOS fallback used',data:{device,enableGL},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       return;
     }
 
@@ -472,6 +503,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     if (!forceHighPerformance && device.tier === 'low') {
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H6',location:'Renderer.astro:start:tier-fallback',message:'tier low fallback',data:{device},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       return;
     }
 
@@ -479,6 +516,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     try {
       await init();
       state = await startRenderer(canvas, device.isMobile);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H7',location:'Renderer.astro:start:renderer-ready',message:'renderer init success',data:{device},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       
       // REMOVED: Fallback hiding moved to after model load
       // if (fallbackContainer) fallbackContainer.classList.add('hidden');
@@ -491,6 +534,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
         if (loader) loader.classList.add('hidden');
         return;
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H8',location:'Renderer.astro:start:base-loaded',message:'balanced model loaded',data:{currentLoadedModelPath},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       
       if (loader) loader.classList.add('hidden');
       
@@ -599,6 +648,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
       console.warn('Falling back due to renderer init failure:', e?.message || e);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9f168e90-fe5a-4ba6-b6be-97b8d2505358',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H9',location:'Renderer.astro:start:error',message:'renderer init failure',data:{error:e?.message || String(e)},timestamp:Date.now()})
+      }).catch(()=>{});
+      // #endregion
       
       // Ensure we kill any zombie loops
       cleanup();
