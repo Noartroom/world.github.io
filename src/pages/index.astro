@@ -310,13 +310,8 @@ import Renderer from '@/components/Renderer.astro';
     updateButton('nav-forward', moves.forward);
     updateButton('nav-backward', moves.backward);
 
-    const worldBgContainer = document.getElementById('world-background-container');
-    // Background: consistent brightness across rooms (remove depth scaling)
-    if (worldBgContainer) {
-      const tx = coords.x * -100; // vw shift per room (horizontal)
-      const ty = coords.y * -100; // vh shift per room (vertical)
-      worldBgContainer.style.transform = `translate(${tx}vw, ${ty}vh)`;
-    }
+    // Note: Layer positioning is handled by CSS transforms in global.css
+    // No JavaScript transform needed to avoid double-transform conflicts
 
     // 3. Update Mini Map Active State
     document.querySelectorAll('.mini-cube').forEach(cube => {
@@ -968,7 +963,6 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.45; /* unified brightness across rooms */
     transition: opacity 1s ease-in-out;
   }
 
