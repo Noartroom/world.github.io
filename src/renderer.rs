@@ -29,8 +29,14 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(canvas: HtmlCanvasElement, is_mobile: bool, sample_count: u32) -> Result<Self, JsValue> {
+        // Force GL-only on mobile/iOS to avoid WebGPU adapter failures; keep WebGPU enabled on desktop.
+        let backends = if is_mobile {
+            wgpu::Backends::GL
+        } else {
+            wgpu::Backends::GL | wgpu::Backends::BROWSER_WEBGPU
+        };
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::GL | wgpu::Backends::BROWSER_WEBGPU,
+            backends,
             ..Default::default()
         });
 
