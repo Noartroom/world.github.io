@@ -61,8 +61,8 @@ impl Renderer {
             }
             // 2) HighPerformance + surface + fallback (can map to GL)
             if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
+            power_preference: wgpu::PowerPreference::HighPerformance, 
+            compatible_surface: Some(&surface), 
                 force_fallback_adapter: true,
             }).await {
                 return Some(a);
@@ -101,11 +101,7 @@ impl Renderer {
         .await
         .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
-        let mut required_limits = if adapter.get_info().backend == wgpu::Backend::Gl {
-            wgpu::Limits::downlevel_defaults() // allow GL1/GL2 minimal limits
-        } else {
-            wgpu::Limits::downlevel_webgl2_defaults()
-        };
+        let mut required_limits = wgpu::Limits::downlevel_webgl2_defaults();
         let adapter_limits = adapter.limits();
         required_limits.max_texture_dimension_2d = adapter_limits.max_texture_dimension_2d;
         required_limits.max_compute_workgroups_per_dimension = 0;
@@ -128,7 +124,7 @@ impl Renderer {
         let surface_format = surface_caps.formats.iter()
             .copied()
             .find(|f| f.is_srgb())
-            .unwrap_or_else(|| surface_caps.formats.iter().copied().find(|f| matches!(f, wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm)).unwrap_or(wgpu::TextureFormat::Rgba8Unorm));
+            .unwrap_or_else(|| surface_caps.formats.first().copied().unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb));
 
         let present_mode = surface_caps.present_modes.iter()
             .copied()

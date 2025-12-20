@@ -66,12 +66,12 @@ export async function initDeviceDetection() {
   // iPadOS 13+ detection (MacIntel + TouchPoints)
   const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isMobile = isAndroid || isIOS || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-
+  
   // @ts-ignore
   let hasWebGPU = !!navigator.gpu;
   const hasWebGL = hasWebGLSupport();
   const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  
+
   const cores = navigator.hardwareConcurrency || 4;
   const memory = navigator.deviceMemory || 4; 
   
@@ -91,13 +91,13 @@ export async function initDeviceDetection() {
   // 1. FALLBACK (Static Image)
   if ((!hasWebGPU && !hasWebGL) || isSlowNetwork || (isMobile && memory < 2)) {
     tier = 'low';
-    isLowPower = true;
-  }
+              isLowPower = true;
+          }
   // iOS Safari: if WebGPU is absent, WebGL paths are often unstable — prefer fallback
   else if (!hasWebGPU && isIOS) {
     tier = 'low';
-    isLowPower = true;
-  }
+              isLowPower = true;
+          }
   // 2. LEGACY 3D (Safari / WebView)
   else if (!hasWebGPU && hasWebGL) {
     console.log('WebGL Legacy Mode Detected (Safari/WebView)');

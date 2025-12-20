@@ -28,8 +28,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
 <script>
   // @ts-ignore
-  let wasmInit = null;
-  let startRenderer = null;
+  import init, { startRenderer } from '/pkg/model_renderer.js'; /* adjust path for prod/dev */
   import { theme, activeModel, onSet, isBlobActive, activeLayer } from '../lib/stores/sceneStore';
   import { timeStore } from '../lib/stores/timeStore';
   import { deviceState, initDeviceDetection } from '../lib/stores/deviceStore';
@@ -412,20 +411,6 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   }
 
   // --- Initialization ---
-  async function loadWasmModule(useGlOnly: boolean) {
-    // Try GL-only bundle first if requested; fallback to main bundle
-    const primary = useGlOnly ? '/pkg/model_renderer_gl.js' : '/pkg/model_renderer.js';
-    const secondary = useGlOnly ? '/pkg/model_renderer.js' : '/pkg/model_renderer_gl.js';
-    try {
-      const mod = await import(primary);
-      return mod;
-    } catch (e) {
-      console.warn('Primary wasm bundle failed, trying fallback bundle:', primary, e);
-      const mod = await import(secondary);
-      return mod;
-    }
-  }
-
   async function start(forceHighPerformance = false) {
     if (!canvas) return;
 
@@ -478,15 +463,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     // Preflight WebGL2 context to avoid wgpu "No adapter" when GL is blocked
     if (!device.hasWebGPU) {
       const glCanvas = document.createElement('canvas');
-      const gl2 = glCanvas.getContext('webgl2', { antialias: true, premultipliedAlpha: false, alpha: false, preserveDrawingBuffer: false });
-      if (!gl2) {
-        const gl1 = glCanvas.getContext('webgl', { antialias: true, premultipliedAlpha: false, alpha: false, preserveDrawingBuffer: false });
-        if (!gl1) {
-          console.warn('WebGL2/1 unavailable; activating fallback.');
-          activateFallbackMode();
-          if (loader) loader.classList.add('hidden');
-          return;
-        }
+      const gl = glCanvas.getContext('webgl2', { antialias: true, premultipliedAlpha: false });
+      if (!gl) {
+        console.warn('WebGL2 unavailable; activating fallback.');
+        activateFallbackMode();
+        if (loader) loader.classList.add('hidden');
+        return;
       }
     }
 
@@ -507,14 +489,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
     // Initialize 3D Renderer
     try {
-      const useGlBundle = !device.hasWebGPU;
-      const mod = await loadWasmModule(useGlBundle);
-      // @ts-ignore
-      wasmInit = mod.default;
-      // @ts-ignore
-      startRenderer = mod.startRenderer;
-
-      await wasmInit();
+      await init();
       state = await startRenderer(canvas, device.isMobile);
       
       // REMOVED: Fallback hiding moved to after model load
