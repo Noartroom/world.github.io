@@ -126,9 +126,11 @@ body.layer-back-active #layer-back {
 }
 
 /* Enhanced transition for leaving deep layer (0,0,0) towards front (0,0,1) */
-body:not(.layer-back-active) #layer-back {
-    transition: transform 1.2s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.8s ease-out;
-    transform: scale(4); /* Explode outwards more dramatically */
+/* Moving "Up" (to Front) -> Old room (Back) moves "Down" */
+body:not(.layer-back-active) #layer-back,
+body:not(.layer-back-active) #bg-layer-back {
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+    transform: translateY(150vh) !important; /* Move down/away significantly */
     opacity: 0;
     pointer-events: none;
 }
