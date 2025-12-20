@@ -205,6 +205,27 @@ import Renderer from '@/components/Renderer.astro';
 
   // --- Spatial Navigation Logic ---
   
+  // View Transitions (Chrome) to smooth background moves without heavy transforms
+  const supportsViewTransitions = typeof document !== 'undefined'
+    && 'startViewTransition' in document
+    && /Chrome|Chromium|Edg\//.test(navigator.userAgent || '');
+
+  if (supportsViewTransitions) {
+    document.body.classList.add('chrome-view-transition');
+  }
+
+  const setLayerWithTransition = (target) => {
+    if (!isLayerValid(target.x, target.y, target.z)) return;
+    if (!supportsViewTransitions) {
+      activeLayer.set(target);
+      return;
+    }
+    // Avoid overlapping transitions; the API queues internally
+    document.startViewTransition(() => {
+      activeLayer.set(target);
+    });
+  };
+
   // Map buttons to vectors (Up/Down removed)
   const navActions = {
       'nav-left': { dx: -1, dy: 0, dz: 0 },
@@ -221,10 +242,7 @@ import Renderer from '@/components/Renderer.astro';
           btn.addEventListener('click', () => {
              const current = activeLayer.get();
              const target = { x: current.x + delta.dx, y: current.y + delta.dy, z: current.z + delta.dz };
-             
-             if (isLayerValid(target.x, target.y, target.z)) {
-                 activeLayer.set(target); // Seamless CSS transition
-             }
+             setLayerWithTransition(target);
           });
       }
   });
@@ -235,10 +253,7 @@ import Renderer from '@/components/Renderer.astro';
           const x = parseInt(cube.dataset.x);
           const y = parseInt(cube.dataset.y);
           const z = parseInt(cube.dataset.z);
-          
-          if (isLayerValid(x, y, z)) {
-              activeLayer.set({ x, y, z });
-          }
+          setLayerWithTransition({ x, y, z });
       });
   });
 
@@ -591,6 +606,13 @@ main {
       /* will-change removed to prevent Safari stacking context issues */
       z-index: -1; /* Behind renderer */
       pointer-events: none;
+  }
+
+  @supports (view-transition-name: none) {
+    body.chrome-view-transition #world-background-container {
+        view-transition-name: world-background;
+        transition: none; /* let View Transitions drive the animation */
+    }
   }
 
   .renderer-layer {
