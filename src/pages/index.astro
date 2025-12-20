@@ -963,15 +963,13 @@ main {
     width: var(--box-w);
     height: var(--box-h);
     perspective: 1000px;
-    margin: 0 auto;
     pointer-events: none !important; /* Ensure passthrough */
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0.45; /* unified brightness across rooms */
-    transform: translate(-50%, -50%) scale(1);
-    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+    transition: opacity 1s ease-in-out;
   }
 
   /* Static Cube for Decor */
@@ -1015,6 +1013,15 @@ main {
   .top, .bottom { width: var(--box-w); height: var(--box-d); }
   .top    { transform: rotateX(90deg) translateZ(calc(var(--box-h) / 2)); }
   .bottom { transform: rotateX(-90deg) translateZ(calc(var(--box-h) / 2)); }
+
+  /* Mobile optimizations for cube container */
+  @media (max-width: 768px) {
+    .cube-container {
+      --box-w: 70vmin;
+      --box-h: 70vmin;
+      --box-d: 70vmin;
+    }
+  }
 
   /* Time Control */
   .time-control {
