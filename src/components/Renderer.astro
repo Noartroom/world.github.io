@@ -77,6 +77,8 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   const fallbackContainer = document.getElementById('fallback-container');
   const force3dBtn = document.getElementById('force-3d-btn');
   const DEFAULT_LOADER_TEXT = 'LOADING 3D...';
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   // Input State
   let isDragging = false;
@@ -423,6 +425,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     // Debug flags
     const params = new URLSearchParams(window.location.search);
     const forceFallback = params.get('fallback') === '1';
+    const enableGL = params.get('enableGL') === '1';
 
     if (forceFallback) {
       console.warn('Fallback mode forced via query param.');
@@ -455,6 +458,14 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
         isLowPower: !device.hasWebGL
       });
       device = deviceState.get();
+    }
+
+    // iOS Safari: if WebGPU is absent/blocked, only attempt GL when explicitly enabled
+    if (!forceHighPerformance && isIOS && !device.hasWebGPU && !enableGL) {
+      console.warn('iOS Safari without WebGPU: using fallback (enable with ?enableGL=1 to force GL).');
+      activateFallbackMode();
+      if (loader) loader.classList.add('hidden');
+      return;
     }
 
     // Check if we should use fallback
