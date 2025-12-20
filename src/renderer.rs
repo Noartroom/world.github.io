@@ -43,21 +43,57 @@ impl Renderer {
         let surface = instance.create_surface(target)
             .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {}", e)))?;
         
-        let adapter = match instance.request_adapter(&wgpu::RequestAdapterOptions { 
-            power_preference: wgpu::PowerPreference::HighPerformance, 
-            compatible_surface: Some(&surface), 
-            force_fallback_adapter: false 
-        }).await {
-            Some(adapter) => adapter,
-            None => {
-                // Retry with fallback adapter (often maps to WebGL backend)
-                instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    compatible_surface: Some(&surface),
-                    force_fallback_adapter: true
-                }).await.ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?
+        // Adapter selection matrix to survive blocked WebGPU and missing surface support
+        let adapter = async {
+            // 1) HighPerformance + surface
+            if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            }).await {
+                return Some(a);
             }
-        };
+            // 2) HighPerformance + surface + fallback (can map to GL)
+            if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: true,
+            }).await {
+                return Some(a);
+            }
+            // 3) LowPower + surface (some mobile GPUs only expose this)
+            if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            }).await {
+                return Some(a);
+            }
+            // 4) LowPower + surface + fallback
+            if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: true,
+            }).await {
+                return Some(a);
+            }
+            // 5) HighPerformance without surface (last resort; may still allow GL)
+            if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: None,
+                force_fallback_adapter: true,
+            }).await {
+                return Some(a);
+            }
+            // 6) LowPower without surface
+            instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                compatible_surface: None,
+                force_fallback_adapter: true,
+            }).await
+        }
+        .await
+        .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
         let mut required_limits = wgpu::Limits::downlevel_webgl2_defaults();
         let adapter_limits = adapter.limits();
