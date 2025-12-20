@@ -460,6 +460,18 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       device = deviceState.get();
     }
 
+    // Preflight WebGL2 context to avoid wgpu "No adapter" when GL is blocked
+    if (!device.hasWebGPU) {
+      const glCanvas = document.createElement('canvas');
+      const gl = glCanvas.getContext('webgl2', { antialias: true, premultipliedAlpha: false });
+      if (!gl) {
+        console.warn('WebGL2 unavailable; activating fallback.');
+        activateFallbackMode();
+        if (loader) loader.classList.add('hidden');
+        return;
+      }
+    }
+
     // iOS Safari: if WebGPU is absent/blocked, only attempt GL when explicitly enabled
     if (!forceHighPerformance && isIOS && !device.hasWebGPU && !enableGL) {
       console.warn('iOS Safari without WebGPU: using fallback (enable with ?enableGL=1 to force GL).');
