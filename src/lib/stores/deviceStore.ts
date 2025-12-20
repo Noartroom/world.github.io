@@ -68,7 +68,7 @@ export async function initDeviceDetection() {
   const isMobile = isAndroid || isIOS || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
 
   // @ts-ignore
-  const hasWebGPU = !!navigator.gpu;
+  let hasWebGPU = !!navigator.gpu;
   const hasWebGL = hasWebGLSupport();
   const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   
@@ -78,6 +78,12 @@ export async function initDeviceDetection() {
   const conn = navigator.connection;
   const isSlowNetwork = conn ? (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === '3g') : false;
   
+  // Safari iOS reports no WebGPU; treat it as GL-only even if a future flag appears.
+  // This avoids unstable partial WebGPU paths on mobile Safari while keeping desktop Safari intact.
+  if (isIOS) {
+    hasWebGPU = false;
+  }
+
   // --- TIER LOGIC ---
   let tier: Tier = 'balanced';
   let isLowPower = false;
