@@ -59,6 +59,17 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   // UI Repulsion Cache
   let uiCache: any[] = [];
   let isTransitioning = false;
+  const overlayDebugger = () => {
+    const cover = document.createElement('div');
+    cover.id = 'overlay-debug-mask';
+    cover.style.position = 'fixed';
+    cover.style.inset = '0';
+    cover.style.pointerEvents = 'none';
+    cover.style.background = 'rgba(255,0,0,0.08)';
+    cover.style.zIndex = '99999';
+    document.body.appendChild(cover);
+    setTimeout(() => cover.remove(), 400);
+  };
 
   // Performance Monitoring (SOTA Guardrails)
   let lastFrameTime = performance.now();
@@ -423,6 +434,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     // Debug flags
     const params = new URLSearchParams(window.location.search);
     const forceFallback = params.get('fallback') === '1';
+    const enableGL = params.get('enableGL') === '1';
 
     if (forceFallback) {
       console.warn('Fallback mode forced via query param.');
@@ -455,6 +467,14 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
         isLowPower: !device.hasWebGL
       });
       device = deviceState.get();
+    }
+
+    // If WebGPU is unavailable/blocked and GL is not explicitly enabled, use static fallback to avoid black screens
+    if (!forceHighPerformance && !device.hasWebGPU && !enableGL) {
+      console.warn('WebGPU unavailable/blocked and GL not explicitly enabled; activating fallback.');
+      activateFallbackMode();
+      if (loader) loader.classList.add('hidden');
+      return;
     }
 
     // Check if we should use fallback
@@ -587,6 +607,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       // If WebGPU init fails, fall back!
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
+      console.warn('Falling back due to renderer init failure:', e?.message || e);
       
       // Ensure we kill any zombie loops
       cleanup();
