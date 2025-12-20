@@ -79,6 +79,31 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   const DEFAULT_LOADER_TEXT = 'LOADING 3D...';
   const ua = navigator.userAgent || '';
   const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let altRendererCache: { init: () => Promise<any>; startRenderer: (canvas: HTMLCanvasElement, isMobile: boolean) => Promise<any> } | null = null;
+  let useAltRenderer = false;
+  let altLoadError: any = null;
+
+  async function loadAltRenderer() {
+    if (altRendererCache) return altRendererCache;
+    try {
+      // Lazy-load GL-only bundle; resilient to different export names
+      // @ts-ignore dynamic alt bundle
+      const mod: any = await import('/pkg/model_renderer_gl.js');
+      const altInit = mod?.default || mod?.init || mod?.initGL;
+      const altStart = mod?.startRendererGL || mod?.startRenderer;
+      if (!altInit || !altStart) {
+        throw new Error('Alt renderer exports not found');
+      }
+      altRendererCache = {
+        init: () => altInit(),
+        startRenderer: (c: HTMLCanvasElement, isMobile: boolean) => altStart(c, isMobile)
+      };
+      return altRendererCache;
+    } catch (e) {
+      altLoadError = e;
+      throw e;
+    }
+  }
 
   // Input State
   let isDragging = false;
@@ -426,6 +451,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     const params = new URLSearchParams(window.location.search);
     const forceFallback = params.get('fallback') === '1';
     const enableGL = params.get('enableGL') === '1';
+    const forceAltRenderer = params.get('altgl') === '1';
 
     if (forceFallback) {
       console.warn('Fallback mode forced via query param.');
@@ -488,9 +514,24 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     }
 
     // Initialize 3D Renderer
+    let initFn: () => Promise<any> = init;
+    let startFn: (canvas: HTMLCanvasElement, isMobile: boolean) => Promise<any> = startRenderer;
+
+    if (forceAltRenderer) {
+      try {
+        const alt = await loadAltRenderer();
+        initFn = alt.init;
+        startFn = alt.startRenderer;
+        useAltRenderer = true;
+        console.warn('Using alternate GL renderer (forced by altgl flag).');
+      } catch (e) {
+        console.warn('Failed to load alternate GL renderer (altgl flag). Falling back to primary.', e);
+      }
+    }
+
     try {
-      await init();
-      state = await startRenderer(canvas, device.isMobile);
+      await initFn();
+      state = await startFn(canvas, device.isMobile);
       
       // REMOVED: Fallback hiding moved to after model load
       // if (fallbackContainer) fallbackContainer.classList.add('hidden');
@@ -603,16 +644,94 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       rafId = requestAnimationFrame(renderLoop);
 
     } catch (e: any) {
+      // Retry once with alternate renderer if not already using it
+      if (!useAltRenderer) {
+        try {
+          const alt = await loadAltRenderer();
+          await alt.init();
+          state = await alt.startRenderer(canvas, device.isMobile);
+          useAltRenderer = true;
+          if (canvas) canvas.style.display = 'block';
+
+          await loadBalancedModel();
+          if (isFallbackMode) {
+            if (loader) loader.classList.add('hidden');
+            return;
+          }
+          if (loader) loader.classList.add('hidden');
+          if (fallbackContainer) fallbackContainer.classList.add('hidden');
+          if (document?.body) document.body.classList.remove('fallback-mode');
+          if (device.tier === 'ultra' && device.networkTier === 'high') {
+            setTimeout(() => triggerSotaUpgrade(), 2000);
+          }
+
+          if (theme) {
+            const initialTheme = theme.get();
+            state.setTheme(initialTheme === 'dark');
+            themeUnsub = onSet(theme, ({ newValue }) => {
+              if (state) {
+                state.setTheme(newValue === 'dark');
+                requestAnimationFrame(() => {
+                  updateTimeOfDay(timeStore.get());
+                });
+              }
+            });
+          }
+          timeUnsub = timeStore.subscribe((value: number) => {
+            updateTimeOfDay(value);
+          });
+          layerUnsub = activeLayer.subscribe(() => {
+            isTransitioning = true;
+            setTimeout(() => {
+              isTransitioning = false;
+            }, 600);
+          });
+          blobUnsub = onSet(isBlobActive, ({ newValue }) => {
+            if (!newValue && state?.despawnBlob) {
+              state.despawnBlob();
+              isDraggingBlob = false;
+              hasSpawnedSinceActive = false;
+            } else if (newValue && state?.spawnBlob) {
+              const isMobile = window.innerWidth < 768;
+              if (isMobile && !hasSpawnedSinceActive) {
+                if (canvas) {
+                  const rect = canvas.getBoundingClientRect();
+                  state.spawnBlob(rect.width / 2, rect.height / 2, rect.width, rect.height);
+                  hasSpawnedSinceActive = true;
+                }
+              }
+            }
+          });
+          if (state && state.despawnBlob && !isBlobActive.get()) {
+            state.despawnBlob();
+          }
+          const initialModel = activeModel.get();
+          await loadModelByTheme(initialModel);
+          modelUnsub = onSet(activeModel, ({ newValue }) => {
+            if (isLoadingModel) return;
+            if (state && newValue) {
+              loadModelByTheme(newValue);
+            }
+          });
+          setupObservers();
+          setupInput();
+          triggerInitialResize();
+          setTimeout(updateUICache, 100);
+          rafId = requestAnimationFrame(renderLoop);
+          return;
+        } catch (altErr) {
+          console.warn('Alternate renderer failed:', altErr);
+        }
+      }
+
       console.group("🔴 SOTA Renderer Error Log");
       console.error("Initialization failed. Details below:");
       if (e.stack) console.error("Stack:", e.stack);
       
-      // If WebGPU init fails, fall back!
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
       console.warn('Falling back due to renderer init failure:', e?.message || e);
       
-      // Ensure we kill any zombie loops
       cleanup();
     }
   }
