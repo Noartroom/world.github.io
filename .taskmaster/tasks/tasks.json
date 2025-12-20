@@ -202,12 +202,23 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Implement Horizontal Navigation Transition",
+        "description": "Implement horizontal sliding transition for navigation between Back (0,0,0) and Right (1,0,0) layers. Add layer-right-active class logic and corresponding CSS transforms.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-20T20:11:35.502Z"
+      "updated": "2025-12-20T20:18:49.701Z"
     }
   }
 }

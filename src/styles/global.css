@@ -109,7 +109,7 @@ body.layer-back-active #bg-layer-back {
   pointer-events: none !important; /* Pass-through interaction to 3D scene */
   
   /* Reset vertical translation to 0 (slide up effect) */
-  transform: translateY(0) !important;
+  transform: translateY(0) translateX(0) !important;
   z-index: 5 !important; /* Move above everything else (except persistent UI) */
   transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
   
@@ -132,10 +132,36 @@ body.layer-back-active #bg-layer-back {
 
 /* Enhanced transition for leaving deep layer (0,0,0) towards front (0,0,1) */
 /* Moving "Up" (to Front) -> Old room (Back) moves "Down" */
-body:not(.layer-back-active) #layer-back,
-body:not(.layer-back-active) #bg-layer-back {
+body:not(.layer-back-active):not(.layer-right-active) #layer-back,
+body:not(.layer-back-active):not(.layer-right-active) #bg-layer-back {
     transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
-    transform: translateY(150vh) !important; /* Move down/away significantly */
+    transform: translateY(150vh) translateX(0) !important; /* Move down/away significantly */
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Lateral transition between Back (0,0,0) and Right (1,0,0) */
+/* When Right is active, slide it in; push Back to the left */
+body.layer-right-active #layer-right,
+body.layer-right-active #bg-layer-right {
+    transform: translateX(0) translateY(0) !important;
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+    pointer-events: none;
+}
+
+body.layer-right-active #layer-back,
+body.layer-right-active #bg-layer-back {
+    transform: translateX(-150vw) translateY(0) !important;
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* When Right is not active, keep Right off-screen to the right */
+body:not(.layer-right-active) #layer-right,
+body:not(.layer-right-active) #bg-layer-right {
+    transform: translateX(150vw) translateY(0) !important;
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
     opacity: 0;
     pointer-events: none;
 }

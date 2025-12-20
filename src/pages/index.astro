@@ -259,12 +259,14 @@ import Renderer from '@/components/Renderer.astro';
 
   // Subscribe to layer changes
   activeLayer.subscribe(coords => {
-    const isBack = coords.z === 0;
+    const isBack = coords.z === 0 && coords.x === 0 && coords.y === 0;
+    const isRight = coords.x === 1 && coords.y === 0 && coords.z === 0;
     
     // Update body class
     const isFront = coords.z === 1 && coords.x === 0 && coords.y === 0;
-    document.body.classList.toggle('layer-back-active', !isFront);
+    document.body.classList.toggle('layer-back-active', isBack);
     document.body.classList.toggle('layer-front-active', isFront);
+    document.body.classList.toggle('layer-right-active', isRight);
 
     // 1. Update Navigation Button Visibility (Desktop Arrows)
     const moves = getAvailableMoves(coords);

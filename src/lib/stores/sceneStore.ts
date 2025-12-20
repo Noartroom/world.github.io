@@ -33,8 +33,8 @@ onSet(theme, ({ newValue }) => {
 // --- Layer State (Spatial) ---
 export type LayerCoordinate = { x: number; y: number; z: number };
 
-// Initial State: Right Layer (1, 0, 0)
-export const activeLayer = atom<LayerCoordinate>({ x: 1, y: 0, z: 0 });
+// Initial State: Back/Deep Layer (0, 0, 0)
+export const activeLayer = atom<LayerCoordinate>({ x: 0, y: 0, z: 0 });
 
 // Valid Layers Map
 // We define which coordinates actually have content
