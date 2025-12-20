@@ -258,21 +258,7 @@ body:not(.layer-back-active) #layer-front .layer-background {
   display: none;
 }
 
-/* Cube "Zoom Out" Animation */
-body.layer-back-active #layer-back .cube-container {
-  display: block !important;
-  transform: translate(-50%, -50%) scale(1); /* Reset scale */
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 1.5s ease-in-out, opacity 1s ease-in;
-}
-
-#layer-back .cube-container {
-  /* Enhanced zoom-in effect when entering deep layer */
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 0.3; 
-  transition: transform 1.8s ease-in-out, opacity 1.2s ease-out;
-}
+/* Cube containers: unified opacity and motion handled in page styles */
 
 
 /* --- Idle Mode (Auto-hide UI) --- */

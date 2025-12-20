@@ -26,6 +26,24 @@ import Renderer from '@/components/Renderer.astro';
           </div>
         </div>
 
+        <!-- Layer (1,0,0) [Right] -->
+        <div id="bg-layer-right" class="world-layer" data-x="1" data-y="0" data-z="0">
+          <div class="room-content">
+             <div class="layer-background">
+                <div class="cube-container room-visual">
+                   <div class="cube static-cube">
+                     <div class="face front"></div>
+                     <div class="face back"></div>
+                     <div class="face right"></div>
+                     <div class="face left"></div>
+                     <div class="face top"></div>
+                     <div class="face bottom"></div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
         <!-- Layer (0,0,1) [Front/Top] -->
         <div id="bg-layer-front" class="world-layer" data-x="0" data-y="0" data-z="1">
           <div class="room-content">
@@ -951,6 +969,9 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 0.45; /* unified brightness across rooms */
+    transform: translate(-50%, -50%) scale(1);
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
   }
 
   /* Static Cube for Decor */
