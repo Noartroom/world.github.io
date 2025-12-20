@@ -147,6 +147,7 @@ body.layer-right-active #bg-layer-right {
     transform: translateX(0) translateY(0) !important;
     transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
     pointer-events: none;
+    opacity: 1;
 }
 
 body.layer-right-active #layer-back,
@@ -164,6 +165,21 @@ body:not(.layer-right-active) #bg-layer-right {
     transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
     opacity: 0;
     pointer-events: none;
+}
+
+/* Hide Front layer while Right is active (to avoid overlay) */
+body.layer-right-active #layer-front,
+body.layer-right-active #bg-layer-front {
+    transform: translateX(150vw) translateY(0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+}
+
+/* When Right is not active, restore Front (unless Back logic overrides via Y) */
+body:not(.layer-right-active) #layer-front,
+body:not(.layer-right-active) #bg-layer-front {
+    transform: translateX(0) !important;
 }
 
 @media (max-width: 768px) {
