@@ -165,9 +165,22 @@ body.layer-back-active #layer-back .room-content {
 }
 
 /* When Back Layer is active, hide the Front Layer (Audio Player, etc.) */
-body.layer-back-active #layer-front {
+/* Front layer moves UP (to -150vh) as we go "Down" to back layer */
+body.layer-back-active #layer-front,
+body.layer-back-active #bg-layer-front {
+  transform: translateY(-150vh) !important;
   opacity: 0 !important;
   pointer-events: none !important;
+  transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
+}
+
+/* Default State (Front Layer Active) */
+/* Front layer returns to 0 */
+body:not(.layer-back-active) #layer-front,
+body:not(.layer-back-active) #bg-layer-front {
+  transform: translateY(0) !important;
+  opacity: 1;
+  transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
 }
 
 /* Persistent UI (Buttons) always stays visible and on top (z-index 100 defined in index.astro) */

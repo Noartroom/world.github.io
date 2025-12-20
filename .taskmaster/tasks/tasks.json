@@ -180,12 +180,34 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Synchronize Vertical Navigation Animations",
+        "description": "Implement vertical sliding transition for #layer-front and #bg-layer-front to match the back layer's elevator effect. Ensure front layer slides up when going down, and slides down when going up.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Update Mobile Navigation Layout",
+        "description": "Reposition mobile navigation elements: center nav cubes at bottom, move coordinates to top center. Apply only to mobile portrait mode.",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-20T19:59:57.589Z"
+      "updated": "2025-12-20T20:11:35.502Z"
     }
   }
 }
