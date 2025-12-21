@@ -360,9 +360,27 @@ body.user-idle #layer-persistent .global-controls {
   #world-background-container {
     background: #000 !important;
   }
+  
+  /* Theme-aware background for world container */
+  body.light-mode #world-background-container {
+    background: #fff !important;
+  }
+  
+  body.dark-mode #world-background-container {
+    background: #000 !important;
+  }
 
   /* Avoid overdraw spikes on overlays */
   .loader {
+    background: rgba(0, 0, 0, 0.55) !important;
+  }
+  
+  /* Theme-aware loader background */
+  body.light-mode .loader {
+    background: rgba(255, 255, 255, 0.55) !important;
+  }
+  
+  body.dark-mode .loader {
     background: rgba(0, 0, 0, 0.55) !important;
   }
 }
