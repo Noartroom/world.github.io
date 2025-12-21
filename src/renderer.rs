@@ -101,48 +101,17 @@ impl Renderer {
         .await
         .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
-        // CRITICAL FIX: Manually construct limits to avoid maxInterStageShaderComponents issue
+        // CRITICAL FIX: Use adapter limits directly to avoid maxInterStageShaderComponents issue
         // Chrome/Safari don't recognize maxInterStageShaderComponents when set to non-undefined.
-        // Even adapter.limits() includes this field, so we must construct limits manually.
+        // Using adapter.limits() ensures we only request limits the browser actually supports.
         let adapter_limits = adapter.limits();
         
-        // Start with minimal default limits and only set what we need
-        // This avoids maxInterStageShaderComponents being set to a problematic value
-        let mut required_limits = wgpu::Limits::default();
-        
-        // Set only essential limits from adapter (avoiding maxInterStageShaderComponents)
-        required_limits.max_texture_dimension_2d = adapter_limits.max_texture_dimension_2d;
-        required_limits.max_texture_dimension_1d = adapter_limits.max_texture_dimension_1d.min(4096);
-        required_limits.max_texture_dimension_3d = adapter_limits.max_texture_dimension_3d.min(256);
-        required_limits.max_texture_array_layers = adapter_limits.max_texture_array_layers.min(256);
-        required_limits.max_bind_groups = adapter_limits.max_bind_groups.min(4);
-        required_limits.max_uniform_buffers_per_shader_stage = adapter_limits.max_uniform_buffers_per_shader_stage.min(12);
-        required_limits.max_storage_buffers_per_shader_stage = adapter_limits.max_storage_buffers_per_shader_stage.min(4);
-        required_limits.max_sampled_textures_per_shader_stage = adapter_limits.max_sampled_textures_per_shader_stage.min(16);
-        required_limits.max_samplers_per_shader_stage = adapter_limits.max_samplers_per_shader_stage.min(16);
-        required_limits.max_vertex_buffers = adapter_limits.max_vertex_buffers.min(8);
-        required_limits.max_vertex_attributes = adapter_limits.max_vertex_attributes.min(30);
-        required_limits.max_vertex_buffer_array_stride = adapter_limits.max_vertex_buffer_array_stride.min(2048);
-        required_limits.max_uniform_buffer_binding_size = adapter_limits.max_uniform_buffer_binding_size.min(65536);
-        required_limits.max_storage_buffer_binding_size = adapter_limits.max_storage_buffer_binding_size.min(134217728);
-        required_limits.min_uniform_buffer_offset_alignment = adapter_limits.min_uniform_buffer_offset_alignment;
-        required_limits.min_storage_buffer_offset_alignment = adapter_limits.min_storage_buffer_offset_alignment;
-        
-        // Disable compute shader limits (we don't use compute shaders)
-        required_limits.max_compute_workgroups_per_dimension = 0;
-        required_limits.max_compute_invocations_per_workgroup = 0;
-        required_limits.max_compute_workgroup_storage_size = 0;
-        required_limits.max_compute_workgroup_size_x = 0;
-        required_limits.max_compute_workgroup_size_y = 0;
-        required_limits.max_compute_workgroup_size_z = 0;
-        
-        // CRITICAL: Do NOT set max_inter_stage_shader_components - leave it at default (0)
-        // Setting it to any value causes Chrome/Safari to reject the request
-
+        // Use adapter limits directly - these are guaranteed to be compatible with the browser
+        // This avoids the maxInterStageShaderComponents issue that occurs with downlevel_webgl2_defaults()
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: wgpu::Features::empty(),
-                required_limits,
+                required_limits: adapter_limits,
                 label: None,
             },
             None,
