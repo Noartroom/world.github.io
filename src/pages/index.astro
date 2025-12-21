@@ -223,6 +223,15 @@ import Renderer from '@/components/Renderer.astro';
 
   // --- Spatial Navigation Logic ---
   
+  // Disable transitions on initial page load for instant appearance
+  let isInitialLoad = true;
+  document.body.classList.add('initial-load');
+  // Remove initial-load class after a short delay to enable transitions for subsequent changes
+  setTimeout(() => {
+    isInitialLoad = false;
+    document.body.classList.remove('initial-load');
+  }, 100);
+  
   // View Transitions (Chrome) to smooth background moves without heavy transforms
   const supportsViewTransitions = typeof document !== 'undefined'
     && 'startViewTransition' in document
@@ -964,6 +973,11 @@ main {
     align-items: center;
     justify-content: center;
     transition: opacity 1s ease-in-out;
+  }
+
+  /* Disable transitions on initial page load */
+  body.initial-load .cube-container {
+    transition: none !important;
   }
 
   /* Static Cube for Decor */

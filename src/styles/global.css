@@ -114,6 +114,17 @@ body.layer-back-active #bg-layer-back {
   transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
 }
 
+/* Disable transitions on initial page load for instant appearance */
+body.initial-load #layer-back,
+body.initial-load #bg-layer-back,
+body.initial-load #layer-right,
+body.initial-load #bg-layer-right,
+body.initial-load #layer-front,
+body.initial-load #bg-layer-front,
+body.initial-load .room-content {
+  transition: none !important;
+}
+
 /* Enhanced transition for leaving deep layer (0,0,0) towards front (0,0,1) */
 /* Moving "Up" (to Front) -> Old room (Back) moves "Down" */
 body:not(.layer-back-active):not(.layer-right-active) #layer-back,
