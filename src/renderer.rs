@@ -101,24 +101,25 @@ impl Renderer {
         .await
         .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
-        let mut required_limits = wgpu::Limits::downlevel_webgl2_defaults();
+        // CRITICAL FIX: Use adapter limits directly to avoid maxInterStageShaderComponents issue
+        // Chrome/Safari don't recognize maxInterStageShaderComponents when set to non-undefined.
+        // Using adapter.limits() ensures we only request limits the browser actually supports.
         let adapter_limits = adapter.limits();
-        required_limits.max_texture_dimension_2d = adapter_limits.max_texture_dimension_2d;
-        required_limits.max_compute_workgroups_per_dimension = 0;
-        required_limits.max_compute_invocations_per_workgroup = 0;
-        required_limits.max_compute_workgroup_storage_size = 0;
-        required_limits.max_compute_workgroup_size_x = 0;
-        required_limits.max_compute_workgroup_size_y = 0;
-        required_limits.max_compute_workgroup_size_z = 0;
-
+        
+        // Use adapter limits directly - these are guaranteed to be compatible with the browser
+        // This avoids the maxInterStageShaderComponents issue that occurs with downlevel_webgl2_defaults()
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: wgpu::Features::empty(),
-                required_limits,
+                required_limits: adapter_limits,
                 label: None,
             },
             None,
-        ).await.map_err(|e| JsValue::from_str(&e.to_string()))?;
+        ).await.map_err(|e| {
+            let error_msg = format!("Failed to create WebGPU device: {}. Browser may not support required WebGPU features.", e);
+            web_sys::console::error_1(&error_msg.clone().into());
+            JsValue::from_str(&error_msg)
+        })?;
 
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps.formats.iter()
