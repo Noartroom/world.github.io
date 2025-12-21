@@ -101,19 +101,17 @@ impl Renderer {
         .await
         .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
-        // Use adapter's actual limits to ensure browser compatibility
-        // This avoids issues with limits like maxInterStageShaderComponents that aren't recognized by all browsers
-        // when set to non-undefined values. Using adapter limits ensures we only request what the browser supports.
+        // CRITICAL FIX: Chrome/Safari don't recognize maxInterStageShaderComponents when set to non-undefined.
+        // The solution: Clone adapter limits and set maxInterStageShaderComponents to 0.
+        // Setting to 0 may cause wgpu to omit it from the WebGPU request or handle it in a Chrome-compatible way.
         let adapter_limits = adapter.limits();
+        let mut required_limits = adapter_limits.clone();
         
-        // Start with default limits and override only what we need
-        // This ensures we don't request unsupported limits
-        let mut required_limits = wgpu::Limits::default();
+        // CRITICAL: Set maxInterStageShaderComponents to 0 to avoid Chrome/Safari rejection
+        // This is the key fix - Chrome doesn't recognize this limit when it has a non-undefined value
+        required_limits.max_inter_stage_shader_components = 0;
         
-        // Use adapter's supported values for critical limits
-        required_limits.max_texture_dimension_2d = adapter_limits.max_texture_dimension_2d;
-        
-        // Disable compute shader limits (we don't use compute shaders)
+        // Ensure compute shader limits are disabled (we don't use compute shaders)
         required_limits.max_compute_workgroups_per_dimension = 0;
         required_limits.max_compute_invocations_per_workgroup = 0;
         required_limits.max_compute_workgroup_storage_size = 0;
@@ -121,31 +119,19 @@ impl Renderer {
         required_limits.max_compute_workgroup_size_y = 0;
         required_limits.max_compute_workgroup_size_z = 0;
 
-        // Try to request device with our required limits
-        // If this fails (e.g., due to unsupported limit values), fall back to adapter limits directly
-        let (device, queue) = match adapter.request_device(
+        // Request device with modified limits (maxInterStageShaderComponents = 0)
+        let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: wgpu::Features::empty(),
-                required_limits: required_limits.clone(),
+                required_limits,
                 label: None,
             },
             None,
-        ).await {
-            Ok(result) => result,
-            Err(e) => {
-                // Fallback: use adapter's actual limits directly
-                // This ensures compatibility with browsers that don't recognize certain limit fields
-                web_sys::console::warn_1(&format!("Device request with custom limits failed: {}. Using adapter limits directly.", e).into());
-                adapter.request_device(
-                    &wgpu::DeviceDescriptor {
-                        required_features: wgpu::Features::empty(),
-                        required_limits: adapter_limits,
-                        label: None,
-                    },
-                    None,
-                ).await.map_err(|e| JsValue::from_str(&format!("Failed to create device: {}", e)))?
-            }
-        };
+        ).await.map_err(|e| {
+            let error_msg = format!("Failed to create WebGPU device: {}. Browser may not support required WebGPU features or limits.", e);
+            web_sys::console::error_1(&error_msg.clone().into());
+            JsValue::from_str(&error_msg)
+        })?;
 
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps.formats.iter()
