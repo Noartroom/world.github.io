@@ -38,7 +38,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
   const CANVAS_ID = container?.dataset.canvasId;
   const modelPath = container?.dataset.modelPath;
   const loader = document.getElementById('loader');
-  const BASE_MODEL_PATH = '/models/CPORTAL2.glb';
+  const BASE_MODEL_PATH = '/models/PORTAL.glb';
   const SOTA_MODEL_PATH = '/models/newmesh.glb';
   // --- Global Scope (für Cleanup notwendig) ---
   let state: any = null;
@@ -311,7 +311,7 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
 
   function getModelPathForType(modelType: string) {
     if (modelType === 'dark') {
-      return '/models/CPORTAL2.glb';
+      return '/models/PORTAL.glb';
     }
     return modelPath || '/models/newmesh.glb';
   }
