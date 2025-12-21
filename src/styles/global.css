@@ -112,22 +112,6 @@ body.layer-back-active #bg-layer-back {
   transform: translateY(0) translateX(0) !important;
   z-index: 5 !important; /* Move above everything else (except persistent UI) */
   transition: transform 1.5s ease-in-out, opacity 1s ease-in-out;
-  
-  /* Optimize mask performance */
-  will-change: mask-image, -webkit-mask-image;
-  
-  /* The Torch Mask: Fully visible (black) at mouse, 20% visible elsewhere */
-  /* ENHANCED: Deeper contrast and tighter focal point for 0,0,0 -> 0,0,1 feel */
-  -webkit-mask-image: radial-gradient(
-    circle 200px at var(--light-x, 50vw) var(--light-y, 50vh),
-    black 0%,
-    rgba(0, 0, 0, 0.2) 70%
-  );
-  mask-image: radial-gradient(
-    circle 200px at var(--light-x, 50vw) var(--light-y, 50vh),
-    black 0%,
-    rgba(0, 0, 0, 0.2) 70%
-  );
 }
 
 /* Enhanced transition for leaving deep layer (0,0,0) towards front (0,0,1) */
@@ -182,14 +166,7 @@ body:not(.layer-right-active) #bg-layer-front {
     transform: translateX(0) !important;
 }
 
-@media (max-width: 768px) {
-  /* Disable expensive masks on mobile to prevent rendering issues */
-  body.layer-back-active #layer-back {
-    -webkit-mask-image: none !important;
-    mask-image: none !important;
-    background: rgba(0,0,0,0.5); /* Fallback dimming */
-  }
-}
+/* Mobile mask override removed - mask-image no longer used */
 
 /* Allow interaction with actual content in Back Layer */
 body.layer-back-active #layer-back .room-content {
