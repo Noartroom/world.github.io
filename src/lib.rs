@@ -6,7 +6,7 @@ mod state;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
-use glam::{vec3, vec4, Mat4, Vec3};
+use glam::{vec3, vec4, Mat4, Vec3, Vec4};
 use js_sys::Array;
 use std::panic;
 use renderer::Renderer;

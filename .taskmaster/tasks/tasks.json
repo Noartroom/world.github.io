@@ -213,23 +213,12 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
-      },
-      {
-        "id": 17,
-        "title": "Fix WebGPU Browser Compatibility & Rust/WASM Optimization",
-        "description": "Fix WebGPU compatibility issues preventing 3D model rendering in Chrome desktop and Safari mobile. Perform surgical optimizations, remove unused code, and add robustness checks to make website SOTA.",
-        "details": "**Critical Issue:** Chrome desktop and Safari mobile are not rendering 3D models due to WebGPU compatibility error:\n\nError: `Failed to execute 'requestDevice' on 'GPUAdapter': The limit \"maxInterStageShaderComponents\" with a non-undefined value is not recognized.`\n\n**Root Cause:** In `src/renderer.rs` line 104, the code uses `wgpu::Limits::downlevel_webgl2_defaults()` which includes limits not recognized by all browsers. The `maxInterStageShaderComponents` limit is not supported in Chrome/Safari's WebGPU implementation.\n\n**Tasks:**\n1. **Fix WebGPU Device Request Limits:** Modify `renderer.rs` to use only browser-compatible limits. Remove or conditionally set `maxInterStageShaderComponents` and other potentially unsupported limits.\n2. **Add Browser-Specific Limit Handling:** Detect browser capabilities and adjust limits accordingly. Use adapter limits as reference rather than hardcoded defaults.\n3. **Improve Error Handling:** Add graceful fallback when WebGPU device creation fails, with better error messages and automatic fallback to WebGL.\n4. **Remove Unused Code:** Audit Rust codebase (lib.rs, renderer.rs, state.rs, uniforms.rs, resources.rs) for unused functions, imports, and dependencies.\n5. **WASM Bundle Optimization:** Review Cargo.toml dependencies, remove unused crates, optimize build flags for smaller WASM output.\n6. **Cross-Browser Testing:** Verify rendering works in Chrome, Safari (desktop/mobile), Firefox, Edge.\n7. **Robustness Checks:** Add validation for WebGPU feature support, adapter capabilities, and proper error recovery paths.\n\n**Key Files to Modify:**\n- `src/renderer.rs` (lines 104-121): Fix device request limits\n- `src/Cargo.toml`: Review and optimize dependencies\n- `src/lib.rs`: Remove unused code\n- `src/components/Renderer.astro`: Improve error handling and fallback logic",
-        "testStrategy": "1. Test in Chrome desktop - verify 3D models render without errors\n2. Test in Safari mobile - verify 3D models render without errors\n3. Test in Firefox - ensure no regressions\n4. Test in Edge - ensure compatibility\n5. Verify WASM bundle size reduction\n6. Check browser console for any WebGPU warnings/errors\n7. Test fallback to WebGL when WebGPU fails\n8. Verify no unused code warnings in Rust compilation",
-        "status": "in-progress",
-        "dependencies": [],
-        "priority": "high",
-        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-12-14T03:53:00.809Z",
       "description": "Default tasks context",
-      "updated": "2025-12-21T21:40:58.883Z"
+      "updated": "2025-12-20T20:18:49.701Z"
     }
   }
 }

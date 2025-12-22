@@ -3,6 +3,7 @@ use glam::{vec2, vec3, vec4, Mat4, Vec3, Vec4, Quat};
 use std::rc::Rc;
 use std::collections::HashSet;
 use flume::Sender;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{ImageBitmap, Blob, BlobPropertyBag, HtmlCanvasElement, CanvasRenderingContext2d};

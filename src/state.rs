@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use flume::{Sender, Receiver};
 use wgpu;
 use crate::uniforms::{SceneUniform, CameraUniform, LightUniform, BlobUniform};
-use crate::resources::{Model, Mesh, AssetMessage, create_sphere_mesh};
+use crate::resources::{Model, Mesh, Texture, AssetMessage, create_sphere_mesh};
 
 pub struct WorldRay {
     pub origin: Vec3,
@@ -245,7 +245,7 @@ impl GameState {
                 let view = Rc::new(texture.view);
                 self.texture_cache.insert(image_index, view.clone());
                 
-                let process_mesh = |mesh: &mut Mesh| {
+                let mut process_mesh = |mesh: &mut Mesh| {
                      let mut update = false;
                     if texture_type == 0 && mesh.diffuse_index == Some(image_index) { mesh.diffuse_view = view.clone(); update = true; }
                     if texture_type == 1 && mesh.normal_index == Some(image_index) { mesh.normal_view = view.clone(); update = true; }

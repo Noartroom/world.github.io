@@ -87,22 +87,12 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
     if (altRendererCache) return altRendererCache;
     try {
       // Lazy-load GL-only bundle; resilient to different export names
-      // Note: model_renderer_gl.js may not exist - fallback to main renderer
       // @ts-ignore dynamic alt bundle
-      const mod: any = await import(/* @vite-ignore */ '/pkg/model_renderer_gl.js').catch(() => {
-        // If GL-specific bundle doesn't exist, use main renderer as fallback
-        return import(/* @vite-ignore */ '/pkg/model_renderer.js');
-      });
+      const mod: any = await import(/* @vite-ignore */ '/pkg/model_renderer_gl.js');
       const altInit = mod?.default || mod?.init || mod?.initGL;
       const altStart = mod?.startRendererGL || mod?.startRenderer;
       if (!altInit || !altStart) {
-        // Fallback to main renderer if alt renderer exports not found
-        const mainMod: any = await import(/* @vite-ignore */ '/pkg/model_renderer.js');
-        altRendererCache = {
-          init: () => mainMod.init(),
-          startRenderer: (c: HTMLCanvasElement, isMobile: boolean) => mainMod.startRenderer(c, isMobile)
-        };
-        return altRendererCache;
+        throw new Error('Alt renderer exports not found');
       }
       altRendererCache = {
         init: () => altInit(),
@@ -110,18 +100,8 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       };
       return altRendererCache;
     } catch (e) {
-      // If all else fails, try to use main renderer
-      try {
-        const mainMod: any = await import(/* @vite-ignore */ '/pkg/model_renderer.js');
-        altRendererCache = {
-          init: () => mainMod.init(),
-          startRenderer: (c: HTMLCanvasElement, isMobile: boolean) => mainMod.startRenderer(c, isMobile)
-        };
-        return altRendererCache;
-      } catch (fallbackError) {
-        altLoadError = e;
-        throw e;
-      }
+      altLoadError = e;
+      throw e;
     }
   }
 
