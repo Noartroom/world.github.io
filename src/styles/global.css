@@ -356,31 +356,46 @@ body.user-idle #layer-persistent .global-controls {
     mask-image: none !important;
   }
 
-  /* Ensure a visible base behind the canvas */
-  #world-background-container {
-    background: #000 !important;
+  /* iOS 26+ supports light-dark() - use it for theme-aware background */
+  @supports (color: light-dark(#000, #fff)) {
+    /* Ensure a visible base behind the canvas with theme support */
+    #world-background-container {
+      background: light-dark(#fff, #000) !important;
+    }
+    
+    .loader {
+      background: light-dark(rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.55)) !important;
+    }
   }
   
-  /* Theme-aware background for world container */
-  body.light-mode #world-background-container {
-    background: #fff !important;
-  }
-  
-  body.dark-mode #world-background-container {
-    background: #000 !important;
-  }
+  /* Fallback for older iOS versions that don't support light-dark() */
+  @supports not (color: light-dark(#000, #fff)) {
+    /* Ensure a visible base behind the canvas */
+    #world-background-container {
+      background: #000 !important;
+    }
+    
+    /* Theme-aware background for world container */
+    body.light-mode #world-background-container {
+      background: #fff !important;
+    }
+    
+    body.dark-mode #world-background-container {
+      background: #000 !important;
+    }
 
-  /* Avoid overdraw spikes on overlays */
-  .loader {
-    background: rgba(0, 0, 0, 0.55) !important;
-  }
-  
-  /* Theme-aware loader background */
-  body.light-mode .loader {
-    background: rgba(255, 255, 255, 0.55) !important;
-  }
-  
-  body.dark-mode .loader {
-    background: rgba(0, 0, 0, 0.55) !important;
+    /* Avoid overdraw spikes on overlays */
+    .loader {
+      background: rgba(0, 0, 0, 0.55) !important;
+    }
+    
+    /* Theme-aware loader background */
+    body.light-mode .loader {
+      background: rgba(255, 255, 255, 0.55) !important;
+    }
+    
+    body.dark-mode .loader {
+      background: rgba(0, 0, 0, 0.55) !important;
+    }
   }
 }
