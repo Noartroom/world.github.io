@@ -78,9 +78,11 @@ export async function initDeviceDetection() {
   const conn = navigator.connection;
   const isSlowNetwork = conn ? (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === '3g') : false;
   
-  // iOS 26+ (Safari 26+) now supports WebGPU - allow it to be detected naturally
-  // Older iOS versions will not have navigator.gpu, so hasWebGPU will remain false
-  // This enables WebGPU on modern iOS while maintaining WebGL fallback for older versions
+  // Safari iOS reports no WebGPU; treat it as GL-only even if a future flag appears.
+  // This avoids unstable partial WebGPU paths on mobile Safari while keeping desktop Safari intact.
+  if (isIOS) {
+    hasWebGPU = false;
+  }
 
   // --- TIER LOGIC ---
   let tier: Tier = 'balanced';
@@ -91,8 +93,7 @@ export async function initDeviceDetection() {
     tier = 'low';
               isLowPower = true;
           }
-  // iOS: If WebGPU is absent on older iOS, WebGL paths can be unstable — prefer fallback
-  // iOS 26+ with WebGPU will skip this and use WebGPU tier logic below
+  // iOS Safari: if WebGPU is absent, WebGL paths are often unstable — prefer fallback
   else if (!hasWebGPU && isIOS) {
     tier = 'low';
               isLowPower = true;
@@ -107,7 +108,7 @@ export async function initDeviceDetection() {
   else if (hasWebGPU && !isMobile && !isTouch && memory >= 8 && cores >= 6) {
     tier = 'ultra';
   }
-  // 4. BALANCED TIER (Default) - includes iOS 26+ with WebGPU
+  // 4. BALANCED TIER (Default)
   else {
     tier = 'balanced';
   }

@@ -29,7 +29,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(canvas: HtmlCanvasElement, is_mobile: bool, sample_count: u32) -> Result<Self, JsValue> {
-        // iOS 26+ now supports WebGPU - try WebGPU first on mobile, with GL fallback
+        // iOS 26+ supports WebGPU - try WebGPU first on all platforms, with GL fallback
         // Desktop: WebGPU + GL, Mobile: WebGPU + GL (both with fallback)
         let backends = wgpu::Backends::GL | wgpu::Backends::BROWSER_WEBGPU;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -98,22 +98,35 @@ impl Renderer {
         .await
         .ok_or_else(|| JsValue::from_str("No adapter (including fallback)"))?;
         
-        // CRITICAL FIX: Use adapter limits directly to avoid maxInterStageShaderComponents issue
-        // Chrome/Safari don't recognize maxInterStageShaderComponents when set to non-undefined.
-        // Using adapter.limits() ensures we only request limits the browser actually supports.
+        // CRITICAL FIX: Chrome/Safari don't recognize maxInterStageShaderComponents when set to non-undefined.
+        // The issue: Even wgpu 28.0.0 may include this in Limits. We need to explicitly avoid it.
+        // Solution: Use adapter limits but ensure maxInterStageShaderComponents is set to 0
+        // (wgpu may omit it or handle it differently when set to 0)
         let adapter_limits = adapter.limits();
+        let mut required_limits = adapter_limits.clone();
         
-        // Use adapter limits directly - these are guaranteed to be compatible with the browser
-        // This avoids the maxInterStageShaderComponents issue that occurs with downlevel_webgl2_defaults()
+        // CRITICAL: Set maxInterStageShaderComponents to 0 to avoid Chrome rejection
+        // Setting to 0 may cause wgpu to omit it from the WebGPU request
+        required_limits.max_inter_stage_shader_components = 0;
+        
+        // Disable compute shader limits (we don't use compute shaders)
+        required_limits.max_compute_workgroups_per_dimension = 0;
+        required_limits.max_compute_invocations_per_workgroup = 0;
+        required_limits.max_compute_workgroup_storage_size = 0;
+        required_limits.max_compute_workgroup_size_x = 0;
+        required_limits.max_compute_workgroup_size_y = 0;
+        required_limits.max_compute_workgroup_size_z = 0;
+        
+        // Request device with maxInterStageShaderComponents = 0
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: wgpu::Features::empty(),
-                required_limits: adapter_limits,
+                required_limits,
                 label: None,
             },
             None,
         ).await.map_err(|e| {
-            let error_msg = format!("Failed to create WebGPU device: {}. Browser may not support required WebGPU features.", e);
+            let error_msg = format!("Failed to create WebGPU device: {}. Browser may not support required WebGPU features or limits.", e);
             web_sys::console::error_1(&error_msg.clone().into());
             JsValue::from_str(&error_msg)
         })?;
