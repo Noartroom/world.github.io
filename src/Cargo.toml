@@ -38,13 +38,8 @@ web-sys = { version = "0.3.69", features = [
     "CanvasRenderingContext2d"
 ]}
 
-<<<<<<< HEAD
-# WebGPU/WGPU-Rendering Todo upgrade
-wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82
-=======
 # WebGPU/WGPU-Rendering
 wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82 TODO: try out newer version compatible with web-sys.
->>>>>>> cb124801998df857ea2f2f624915f57f9b325fa5
 
 # 3D-Mathematik
 glam = { version = "0.28.0", features = ["bytemuck"] }
