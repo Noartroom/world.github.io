@@ -35,6 +35,21 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Fallback for browsers that don't support light-dark() (e.g., iOS Safari) */
+@supports not (color: light-dark(#000, #fff)) {
+  body {
+    color: #444; /* Default light mode color */
+  }
+  
+  body.dark-mode {
+    color: #fff; /* Dark mode color */
+  }
+  
+  body.light-mode {
+    color: #444; /* Light mode color */
+  }
+}
+
 h1, h2, h3 {
   line-height: 1.2;
 }
@@ -54,11 +69,56 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Fallback for browsers that don't support light-dark() (e.g., iOS Safari) */
+@supports not (color: light-dark(#000, #fff)) {
+  button {
+    background-color: #c9d1d9; /* Default light mode background */
+    color: #444; /* Default light mode text */
+  }
+  
+  body.dark-mode button {
+    background-color: #444; /* Dark mode background */
+    color: #c9d1d9; /* Dark mode text */
+  }
+  
+  body.light-mode button {
+    background-color: #c9d1d9; /* Light mode background */
+    color: #444; /* Light mode text */
+  }
+}
+
 a:link {
   color: light-dark(#58a6ff, #bf753d);
 }
 a:visited {
   color: light-dark(#434669, #785438);
+}
+
+/* Fallback for browsers that don't support light-dark() (e.g., iOS Safari) */
+@supports not (color: light-dark(#000, #fff)) {
+  a:link {
+    color: #58a6ff; /* Default light mode link color */
+  }
+  
+  body.dark-mode a:link {
+    color: #bf753d; /* Dark mode link color */
+  }
+  
+  body.light-mode a:link {
+    color: #58a6ff; /* Light mode link color */
+  }
+  
+  a:visited {
+    color: #434669; /* Default light mode visited color */
+  }
+  
+  body.dark-mode a:visited {
+    color: #785438; /* Dark mode visited color */
+  }
+  
+  body.light-mode a:visited {
+    color: #434669; /* Light mode visited color */
+  }
 }
 
 /* Theme toggle styles from your 'style.css' */
@@ -188,6 +248,21 @@ body.layer-back-active #layer-back .room-content {
   color: light-dark(rgba(0, 0, 0, 1), rgba(255, 255, 255, 1));
 }
 
+/* Fallback for browsers that don't support light-dark() (e.g., iOS Safari) */
+@supports not (color: light-dark(#000, #fff)) {
+  body.layer-back-active #layer-back .room-content {
+    color: rgba(0, 0, 0, 1); /* Default light mode color */
+  }
+  
+  body.layer-back-active.dark-mode #layer-back .room-content {
+    color: rgba(255, 255, 255, 1); /* Dark mode color */
+  }
+  
+  body.layer-back-active.light-mode #layer-back .room-content {
+    color: rgba(0, 0, 0, 1); /* Light mode color */
+  }
+}
+
 /* Smooth transition for text position matches wireframe animation */
 .room-content {
   transform: translateY(0);
@@ -285,9 +360,27 @@ body.user-idle #layer-persistent .global-controls {
   #world-background-container {
     background: #000 !important;
   }
+  
+  /* Theme-aware background for world container */
+  body.light-mode #world-background-container {
+    background: #fff !important;
+  }
+  
+  body.dark-mode #world-background-container {
+    background: #000 !important;
+  }
 
   /* Avoid overdraw spikes on overlays */
   .loader {
+    background: rgba(0, 0, 0, 0.55) !important;
+  }
+  
+  /* Theme-aware loader background */
+  body.light-mode .loader {
+    background: rgba(255, 255, 255, 0.55) !important;
+  }
+  
+  body.dark-mode .loader {
     background: rgba(0, 0, 0, 0.55) !important;
   }
 }

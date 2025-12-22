@@ -38,8 +38,13 @@ web-sys = { version = "0.3.69", features = [
     "CanvasRenderingContext2d"
 ]}
 
+<<<<<<< HEAD
 # WebGPU/WGPU-Rendering Todo upgrade
 wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82
+=======
+# WebGPU/WGPU-Rendering
+wgpu = { version = "0.20.0", features = ["webgl", "spirv"] } # Stable and compatible with web-sys 0.3.82 TODO: try out newer version compatible with web-sys.
+>>>>>>> cb124801998df857ea2f2f624915f57f9b325fa5
 
 # 3D-Mathematik
 glam = { version = "0.28.0", features = ["bytemuck"] }
@@ -64,4 +69,4 @@ panic = "abort"     # Remove panic unwinding strings
 strip = true        # Remove symbols
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false      # Todo: try updating your wasm-bindgen version in Cargo.toml (currently 0.2.92) or installing a newer version of wasm-pack to see if that resolves the error later.
+wasm-opt = false      # TODO: try updating your wasm-bindgen version in Cargo.toml (currently 0.2.92) or installing a newer version of wasm-pack to see if that resolves the error later.

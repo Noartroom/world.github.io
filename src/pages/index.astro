@@ -764,10 +764,30 @@ main {
     z-index: 1000;
     box-shadow: 0 0 30px rgba(0,0,0,0.5);
   }
+  
+  /* Theme-aware global controls */
+  body.light-mode .global-controls {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 30px rgba(0,0,0,0.2);
+  }
+  
+  body.dark-mode .global-controls {
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+  }
 
   @supports not (backdrop-filter: blur(1px)) {
     .global-controls {
       backdrop-filter: none;
+      background: rgba(0, 0, 0, 0.55);
+    }
+    
+    /* Theme-aware fallback for global controls */
+    body.light-mode .global-controls {
+      background: rgba(255, 255, 255, 0.75);
+    }
+    
+    body.dark-mode .global-controls {
       background: rgba(0, 0, 0, 0.55);
     }
   }
@@ -809,6 +829,19 @@ main {
       padding: 0;
       pointer-events: auto; /* Buttons must be clickable */
   }
+  
+  /* Theme-aware navigation buttons */
+  body.light-mode .nav-btn-circle {
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      color: #000;
+  }
+  
+  body.dark-mode .nav-btn-circle {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+  }
 
 
   /* Disabled State: Grayed out but visible */
@@ -829,6 +862,19 @@ main {
       transition: all 0.2s ease-out;
       cursor: pointer;
       border-radius: 6px;
+  }
+  
+  /* Theme-aware global toggle buttons */
+  body.light-mode .global-toggle {
+      background: rgba(255, 255, 255, 0.8);
+      color: #000;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  body.dark-mode .global-toggle {
+      background: rgba(68, 68, 68, 0.8);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
 
@@ -893,6 +939,15 @@ main {
     background: rgba(255, 255, 255, 0.1);
     margin: 0 0.5rem;
   }
+  
+  /* Theme-aware divider */
+  body.light-mode .divider {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  
+  body.dark-mode .divider {
+    background: rgba(255, 255, 255, 0.1);
+  }
 
   /* --- Mobile Navigation --- */
   .layer-nav-mobile {
@@ -930,6 +985,19 @@ main {
           justify-content: center;
           align-items: center;
           transition: all 0.3s ease;
+      }
+      
+      /* Theme-aware mobile navigation buttons */
+      body.light-mode .mobile-nav-btn {
+          background: rgba(255, 255, 255, 0.5);
+          color: #000;
+          border: 1px solid rgba(0, 0, 0, 0.2);
+      }
+      
+      body.dark-mode .mobile-nav-btn {
+          background: rgba(0,0,0,0.5);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.2);
       }
 
       .mobile-nav-btn.hidden {
