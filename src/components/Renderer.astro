@@ -518,9 +518,10 @@ const { modelPath = "/models/newmesh.glb" } = Astro.props;
       }
     }
 
-    // iOS Safari: if WebGPU is absent/blocked, only attempt GL when explicitly enabled
-    if (!forceHighPerformance && isIOS && !device.hasWebGPU && !enableGL) {
-      console.warn('iOS Safari without WebGPU: using fallback (enable with ?enableGL=1 to force GL).');
+    // iOS: iOS 26+ (Safari 26+) now supports WebGPU - try it first
+    // Older iOS versions without WebGPU will fall back to WebGL or static fallback
+    if (!forceHighPerformance && isIOS && !device.hasWebGPU && !device.hasWebGL && !enableGL) {
+      console.warn('iOS Safari without WebGPU or WebGL: using fallback (enable with ?enableGL=1 to force GL).');
       activateFallbackMode();
       if (loader) loader.classList.add('hidden');
       return;
